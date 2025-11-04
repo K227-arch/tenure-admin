@@ -1,0 +1,104 @@
+import { NextResponse } from 'next/server';
+import { supabaseAdmin } from '@/lib/supabase/client';
+
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
+    const status = searchParams.get('status');
+    const type = searchParams.get('type');
+    const search = searchParams.get('search');
+
+    const offset = (page - 1) * limit;
+
+    // Build query
+    let query = supabaseAdmin
+      .from('transactions')
+      .select(`
+        *,
+        users!inner(
+          id,
+          name,
+          email,
+          avatar
+        )
+      `)
+      .order('created_at', { ascending: false });
+
+    // Apply filters
+    if (status && status !== 'all') {
+      query = query.eq('status', status);
+    }
+
+    if (type && type !== 'all') {
+      query = query.eq('type', type);
+    }
+
+    if (search) {
+      query = query.or(`users.name.ilike.%${search}%,users.email.ilike.%${search}%,description.ilike.%${search}%`);
+    }
+
+    // Get total count
+    const { count } = await supabaseAdmin
+      .from('transactions')
+      .select('*', { count: 'exact', head: true });
+
+    // Get paginated data
+    const { data: transactions, error } = await query
+      .range(offset, offset + limit - 1);
+
+    if (error) {
+      throw error;
+    }
+
+    return NextResponse.json({
+      transactions: transactions || [],
+      pagination: {
+        page,
+        pages: Math.ceil((count || 0) / limit),
+        total: count || 0,
+        limit
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching transactions:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch transactions' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    
+    const { data: transaction, error } = await supabaseAdmin
+      .from('transactions')
+      .insert([{
+        user_id: body.user_id,
+        type: body.type,
+        amount: body.amount,
+        currency: body.currency || 'USD',
+        status: body.status || 'pending',
+        description: body.description,
+        metadata: body.metadata || null,
+        processed_at: body.status === 'completed' ? new Date().toISOString() : null
+      }])
+      .select()
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    return NextResponse.json(transaction);
+  } catch (error) {
+    console.error('Error creating transaction:', error);
+    return NextResponse.json(
+      { error: 'Failed to create transaction' },
+      { status: 500 }
+    );
+  }
+}

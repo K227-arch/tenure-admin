@@ -1,0 +1,246 @@
+'use client'
+
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Trophy, CheckCircle, XCircle, AlertCircle, Play } from "lucide-react";
+import { toast } from "sonner";
+
+const eligibleMembers = [
+  {
+    id: "M001",
+    name: "John Doe",
+    tenureMonths: 12,
+    totalPaid: 3600,
+    prepaymentStatus: "completed",
+  },
+  {
+    id: "M002",
+    name: "Jane Smith",
+    tenureMonths: 12,
+    totalPaid: 3600,
+    prepaymentStatus: "completed",
+  },
+  {
+    id: "M005",
+    name: "Sarah Wilson",
+    tenureMonths: 12,
+    totalPaid: 3600,
+    prepaymentStatus: "pending",
+  },
+];
+
+const payoutHistory = [
+  {
+    date: "2024-12-01",
+    winner: "Michael Brown",
+    amount: 42000,
+    status: "completed",
+  },
+  {
+    date: "2023-12-01",
+    winner: "Emily Davis",
+    amount: 38000,
+    status: "completed",
+  },
+  {
+    date: "2022-12-01",
+    winner: "David Miller",
+    amount: 35000,
+    status: "completed",
+  },
+];
+
+export default function Payouts() {
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const handleTriggerPayout = () => {
+    setIsProcessing(true);
+    // Simulate payout processing
+    setTimeout(() => {
+      setIsProcessing(false);
+      toast.success("Payout calculation completed successfully!");
+    }, 2000);
+  };
+
+  return (
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-4xl font-bold text-foreground mb-2">
+            Payout Management
+          </h1>
+          <p className="text-muted-foreground">
+            Manage 12-month tenure payouts and winner selection.
+          </p>
+        </div>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button size="lg" className="bg-gradient-primary">
+              <Play className="h-5 w-5 mr-2" />
+              Trigger Payout Calculation
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirm Payout Calculation</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will calculate the 12-month payout based on total revenue
+                collected and select eligible winner(s). Are you sure you want to
+                proceed?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleTriggerPayout}>
+                {isProcessing ? "Processing..." : "Confirm"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+
+      {/* Current Cycle Stats */}
+      <div className="grid gap-6 md:grid-cols-3">
+        <Card className="shadow-card">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Trophy className="h-5 w-5 text-primary" />
+              Total Payout Pool
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-foreground">$42,000</div>
+            <p className="text-sm text-muted-foreground mt-1">
+              Available for distribution
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-card">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-success" />
+              Eligible Members
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-foreground">3</div>
+            <p className="text-sm text-muted-foreground mt-1">
+              Completed 12 months
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-card">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-warning" />
+              Next Payout Date
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-foreground">Jan 2026</div>
+            <p className="text-sm text-muted-foreground mt-1">4 months away</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Eligible Members */}
+      <Card className="shadow-card">
+        <CardHeader>
+          <CardTitle>Eligible Members for Current Cycle</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {eligibleMembers.map((member) => (
+              <div
+                key={member.id}
+                className="flex items-center justify-between border-b border-border pb-4 last:border-0"
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center gap-3">
+                    <p className="font-semibold text-foreground">
+                      {member.name}
+                    </p>
+                    <Badge variant="secondary">{member.id}</Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Tenure: {member.tenureMonths} months | Total Paid: $
+                    {member.totalPaid}
+                  </p>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="text-right">
+                    <p className="text-sm text-muted-foreground mb-1">
+                      $300 Pre-payment
+                    </p>
+                    {member.prepaymentStatus === "completed" ? (
+                      <Badge variant="default" className="bg-success">
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                        Completed
+                      </Badge>
+                    ) : (
+                      <Badge variant="destructive">
+                        <XCircle className="h-3 w-3 mr-1" />
+                        Pending
+                      </Badge>
+                    )}
+                  </div>
+                  <Button variant="outline" size="sm">
+                    View Details
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Payout History */}
+      <Card className="shadow-card">
+        <CardHeader>
+          <CardTitle>Payout History</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {payoutHistory.map((payout, index) => (
+              <div
+                key={index}
+                className="flex items-center justify-between border-b border-border pb-4 last:border-0"
+              >
+                <div>
+                  <p className="font-semibold text-foreground">{payout.winner}</p>
+                  <p className="text-sm text-muted-foreground">{payout.date}</p>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="text-right">
+                    <p className="font-semibold text-foreground">
+                      ${payout.amount.toLocaleString()}
+                    </p>
+                    <Badge variant="default" className="bg-success">
+                      {payout.status}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
