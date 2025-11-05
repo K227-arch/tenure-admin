@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase/client';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 import { getStripeAnalytics } from '@/lib/stripe/client';
 import { getTwilioAnalytics } from '@/lib/twilio/client';
 import { getEmailAnalytics } from '@/lib/email/analytics';

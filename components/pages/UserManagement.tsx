@@ -43,7 +43,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Search, Filter, Eye, Mail, Phone, Plus, Edit, Trash2, User, Clock } from "lucide-react";
+import { Search, Filter, Eye, Mail, Phone, User, Clock } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 
@@ -63,17 +63,7 @@ async function fetchUsers(page = 1, search = '', status = '', role = '') {
   return response.json();
 }
 
-async function createUser(userData: any) {
-  const response = await fetch('/api/users', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(userData),
-  });
-  if (!response.ok) {
-    throw new Error('Failed to create user');
-  }
-  return response.json();
-}
+// create user removed
 
 async function updateUser(id: string, userData: any) {
   const response = await fetch(`/api/users/${id}`, {
@@ -103,9 +93,8 @@ export default function UserManagement() {
   const [roleFilter, setRoleFilter] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   
-  // Dialog states
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+// Dialog states
+const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   
   // Form states
@@ -127,18 +116,6 @@ export default function UserManagement() {
   });
 
   // Mutations
-  const createMutation = useMutation({
-    mutationFn: createUser,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users'] });
-      setIsCreateDialogOpen(false);
-      resetForm();
-      toast.success('User created successfully!');
-    },
-    onError: (error) => {
-      toast.error('Failed to create user: ' + error.message);
-    },
-  });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: any }) => updateUser(id, data),
@@ -181,8 +158,17 @@ export default function UserManagement() {
     });
   };
 
+<<<<<<< HEAD
   const handleCreate = () => {
     createMutation.mutate(formData);
+=======
+  const handleSuspend = (userId: string) => {
+    updateMutation.mutate({ id: userId, data: { status: 'suspended' } });
+  };
+
+  const handleBlock = (userId: string) => {
+    updateMutation.mutate({ id: userId, data: { status: 'blocked' } });
+>>>>>>> efa2392 (dd)
   };
 
   const handleEdit = (user: any) => {
@@ -244,6 +230,7 @@ export default function UserManagement() {
             View and manage all members in your system.
           </p>
         </div>
+<<<<<<< HEAD
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
             <Button onClick={() => resetForm()}>
@@ -335,6 +322,9 @@ export default function UserManagement() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+=======
+        {/* Add User removed */}
+>>>>>>> efa2392 (dd)
       </div>
 
       {/* Filters */}
@@ -465,34 +455,12 @@ export default function UserManagement() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <Button variant="ghost" size="sm" onClick={() => handleEdit(user)}>
-                          <Edit className="h-4 w-4" />
+                        <Button variant="secondary" size="sm" onClick={() => handleSuspend(user.id)}>
+                          Suspend
                         </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="sm">
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                This action cannot be undone. This will permanently delete the user
-                                &quot;{user.name}&quot; and remove their data from the system.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => handleDelete(user.id)}
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                              >
-                                {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                        <Button variant="destructive" size="sm" onClick={() => handleBlock(user.id)}>
+                          Block
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>

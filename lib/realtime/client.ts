@@ -70,16 +70,16 @@ export function useRealtimeData() {
       const today = new Date().toISOString().split('T')[0];
       
       const { data: totalTransactions } = await supabase
-        .from('transactions')
+        .from('user_payments')
         .select('id', { count: 'exact' });
 
       const { data: todayTransactions } = await supabase
-        .from('transactions')
+        .from('user_payments')
         .select('amount')
         .gte('created_at', today);
 
       const { data: pendingTransactions } = await supabase
-        .from('transactions')
+        .from('user_payments')
         .select('id', { count: 'exact' })
         .eq('status', 'pending');
 
@@ -103,17 +103,17 @@ export function useRealtimeData() {
       const today = new Date().toISOString().split('T')[0];
       
       const { data: activeSubscriptions } = await supabase
-        .from('subscriptions')
+        .from('user_subscriptions')
         .select('id', { count: 'exact' })
         .eq('status', 'active');
 
       const { data: newSubscriptions } = await supabase
-        .from('subscriptions')
+        .from('user_subscriptions')
         .select('id', { count: 'exact' })
         .gte('created_at', today);
 
       const { data: canceledToday } = await supabase
-        .from('subscriptions')
+        .from('user_subscriptions')
         .select('id', { count: 'exact' })
         .eq('status', 'canceled')
         .gte('updated_at', today);
@@ -163,7 +163,7 @@ export function useRealtimeData() {
         }
       )
       .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'transactions' },
+        { event: '*', schema: 'public', table: 'user_payments' },
         (payload) => {
           console.log('Transaction change received:', payload);
           // Update transaction stats
@@ -171,7 +171,7 @@ export function useRealtimeData() {
         }
       )
       .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'subscriptions' },
+        { event: '*', schema: 'public', table: 'user_subscriptions' },
         (payload) => {
           console.log('Subscription change received:', payload);
           // Update subscription stats

@@ -1,5 +1,5 @@
 import nodemailer from 'nodemailer';
-import { supabaseAdmin } from '@/lib/supabase/client';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export interface EmailAnalytics {
   totalEmails: number;

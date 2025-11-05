@@ -2,7 +2,9 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, DollarSign, AlertCircle, Clock } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { supabase } from "@/lib/supabase/client";
 import {
   LineChart,
   Line,
@@ -28,6 +30,32 @@ async function fetchDashboardStats() {
 // User activity not available with current schema
 
 export default function Dashboard() {
+  const queryClient = useQueryClient();
+
+  // Realtime: invalidate queries on changes to users/transactions/subscriptions
+  useEffect(() => {
+    const channel = supabase
+      .channel('admin-dashboard-ui')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+        queryClient.invalidateQueries({ queryKey: ['user-activity'] });
+      })
+      // payments affect revenue and counts
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_payments' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_payments' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_subscriptions' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
   const { data, isLoading, error } = useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: fetchDashboardStats,

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase/client';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export async function GET() {
   try {
@@ -10,11 +10,14 @@ export async function GET() {
 
     const { data: users, error } = await supabaseAdmin
       .from('users')
-      .select('id, name, email, avatar, last_active, status, created_at')
-      .order('last_active', { ascending: false, nullsLast: true });
+      .select('id, name, email, image, status, created_at, updated_at')
+      .order('updated_at', { ascending: false });
 
     if (error) {
-      throw error;
+      return NextResponse.json(
+        { error: 'Query error', detail: error.message },
+        { status: 500 }
+      );
     }
 
     // Categorize users by activity
@@ -27,12 +30,13 @@ export async function GET() {
     };
 
     users?.forEach(user => {
-      if (!user.last_active) {
+      const activityTs = user.updated_at || user.created_at;
+      if (!activityTs) {
         categorizedUsers.inactive.push(user);
         return;
       }
 
-      const lastActive = new Date(user.last_active);
+      const lastActive = new Date(activityTs);
       const diffMinutes = (now.getTime() - lastActive.getTime()) / (1000 * 60);
 
       if (diffMinutes <= 30) {

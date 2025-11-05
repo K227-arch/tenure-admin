@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase/client';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export async function GET(
   request: NextRequest,
@@ -35,18 +35,15 @@ export async function PUT(
 ) {
   try {
     const body = await request.json();
-    const { name, role, status, membershipType, phone, address } = body;
+    const { name, status, avatar } = body;
 
     const updateData: any = {
       updated_at: new Date().toISOString(),
     };
     
     if (name !== undefined) updateData.name = name;
-    if (role !== undefined) updateData.role = role;
     if (status !== undefined) updateData.status = status;
-    if (membershipType !== undefined) updateData.membership_type = membershipType;
-    if (phone !== undefined) updateData.phone = phone;
-    if (address !== undefined) updateData.address = address;
+    if (avatar !== undefined) updateData.image = avatar;
 
     const { data: updatedUser, error } = await supabaseAdmin
       .from('users')
