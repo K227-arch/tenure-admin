@@ -109,6 +109,7 @@ export default function SubscriptionManagement() {
   const [formData, setFormData] = useState({
     user_id: '',
     stripe_subscription_id: '',
+    provider: 'stripe',
     status: 'active',
     current_period_start: '',
     current_period_end: '',
@@ -171,6 +172,7 @@ export default function SubscriptionManagement() {
     setFormData({
       user_id: '',
       stripe_subscription_id: '',
+      provider: 'stripe',
       status: 'active',
       current_period_start: '',
       current_period_end: '',
@@ -186,7 +188,8 @@ export default function SubscriptionManagement() {
     setSelectedSubscription(subscription);
     setFormData({
       user_id: subscription.user_id,
-      stripe_subscription_id: subscription.stripe_subscription_id,
+      stripe_subscription_id: subscription.provider_subscription_id || '',
+      provider: subscription.provider || 'stripe',
       status: subscription.status,
       current_period_start: subscription.current_period_start?.split('T')[0] || '',
       current_period_end: subscription.current_period_end?.split('T')[0] || '',
@@ -291,7 +294,7 @@ export default function SubscriptionManagement() {
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="stripe_subscription_id" className="text-right">Stripe ID</Label>
+                <Label htmlFor="stripe_subscription_id" className="text-right">Provider ID</Label>
                 <Input
                   id="stripe_subscription_id"
                   value={formData.stripe_subscription_id}
@@ -299,6 +302,19 @@ export default function SubscriptionManagement() {
                   className="col-span-3"
                   placeholder="sub_1234567890"
                 />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="provider" className="text-right">Provider</Label>
+                <Select value={formData.provider || 'stripe'} onValueChange={(value) => setFormData({ ...formData, provider: value })}>
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="stripe">Stripe</SelectItem>
+                    <SelectItem value="paypal">PayPal</SelectItem>
+                    <SelectItem value="manual">Manual</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="status" className="text-right">Status</Label>
@@ -442,8 +458,8 @@ export default function SubscriptionManagement() {
               <TableHeader>
                 <TableRow>
                   <TableHead>User</TableHead>
-                  <TableHead>Stripe ID</TableHead>
-                  <TableHead>Plan</TableHead>
+                  <TableHead>Provider ID</TableHead>
+                  <TableHead>Provider</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Current Period</TableHead>
                   <TableHead>Created</TableHead>
@@ -456,22 +472,22 @@ export default function SubscriptionManagement() {
                     <TableCell>
                       <div className="flex items-center space-x-3">
                         <Avatar className="h-8 w-8">
-                          <AvatarImage src={subscription.users?.avatar} />
+                          <AvatarImage src={subscription.users?.image} />
                           <AvatarFallback>
                             <User className="h-4 w-4" />
                           </AvatarFallback>
                         </Avatar>
                         <div>
-                          <div className="font-medium">{subscription.users?.name}</div>
+                          <div className="font-medium">{subscription.users?.name || 'No Name'}</div>
                           <div className="text-sm text-muted-foreground">{subscription.users?.email}</div>
                         </div>
                       </div>
                     </TableCell>
                     <TableCell className="font-mono text-sm">
-                      {subscription.stripe_subscription_id}
+                      {subscription.provider_subscription_id || 'N/A'}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline">{subscription.plan_id || 'N/A'}</Badge>
+                      <Badge variant="outline">{subscription.provider || 'Manual'}</Badge>
                     </TableCell>
                     <TableCell>
                       <Badge variant={getStatusColor(subscription.status)}>
@@ -508,7 +524,7 @@ export default function SubscriptionManagement() {
                               <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                               <AlertDialogDescription>
                                 This action cannot be undone. This will permanently delete the subscription
-                                for &quot;{subscription.users?.name}&quot;.
+                                for &quot;{subscription.users?.name || 'this user'}&quot;.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
@@ -528,13 +544,43 @@ export default function SubscriptionManagement() {
                 )) : (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-8">
-                      <p className="text-muted-foreground">No subscriptions found.</p>
+                      <p className="text-muted-foreground">No subscriptions found. Check your database connection or create a new subscription.</p>
                     </TableCell>
                   </TableRow>
                 )}
               </TableBody>
             </Table>
           </div>
+          
+          {/* Pagination */}
+          {pagination.pages > 1 && (
+            <div className="flex items-center justify-between px-2 py-4">
+              <div className="text-sm text-muted-foreground">
+                Showing {((currentPage - 1) * 10) + 1} to {Math.min(currentPage * 10, pagination.total)} of {pagination.total} results
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </Button>
+                <div className="text-sm">
+                  Page {currentPage} of {pagination.pages}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(Math.min(pagination.pages, currentPage + 1))}
+                  disabled={currentPage === pagination.pages}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

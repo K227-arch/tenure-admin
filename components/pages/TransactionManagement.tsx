@@ -80,8 +80,8 @@ export default function TransactionManagement() {
     amount: '',
     currency: 'USD',
     status: 'pending',
-    description: '',
-    metadata: ''
+    provider: 'manual',
+    description: ''
   });
 
   const queryClient = useQueryClient();
@@ -118,16 +118,15 @@ export default function TransactionManagement() {
       amount: '',
       currency: 'USD',
       status: 'pending',
-      description: '',
-      metadata: ''
+      provider: 'manual',
+      description: ''
     });
   };
 
   const handleCreate = () => {
     const transactionData = {
       ...formData,
-      amount: parseFloat(formData.amount),
-      metadata: formData.metadata ? JSON.parse(formData.metadata) : null
+      amount: parseFloat(formData.amount)
     };
     createMutation.mutate(transactionData);
   };
@@ -135,6 +134,7 @@ export default function TransactionManagement() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed':
+      case 'succeeded':
         return 'default';
       case 'failed':
         return 'destructive';
@@ -188,11 +188,11 @@ export default function TransactionManagement() {
   // Calculate stats
   const stats = {
     total: transactions.length,
-    completed: transactions.filter(t => t.status === 'completed').length,
+    completed: transactions.filter(t => t.status === 'completed' || t.status === 'succeeded').length,
     pending: transactions.filter(t => t.status === 'pending').length,
     failed: transactions.filter(t => t.status === 'failed').length,
     totalAmount: transactions
-      .filter(t => t.status === 'completed')
+      .filter(t => t.status === 'completed' || t.status === 'succeeded')
       .reduce((sum, t) => sum + (t.amount || 0), 0)
   };
 
@@ -289,6 +289,19 @@ export default function TransactionManagement() {
                 </Select>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="provider" className="text-right">Provider</Label>
+                <Select value={formData.provider || 'manual'} onValueChange={(value) => setFormData({ ...formData, provider: value })}>
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="stripe">Stripe</SelectItem>
+                    <SelectItem value="paypal">PayPal</SelectItem>
+                    <SelectItem value="manual">Manual</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="description" className="text-right">Description</Label>
                 <Input
                   id="description"
@@ -296,17 +309,6 @@ export default function TransactionManagement() {
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   className="col-span-3"
                   placeholder="Transaction description"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="metadata" className="text-right">Metadata</Label>
-                <Textarea
-                  id="metadata"
-                  value={formData.metadata}
-                  onChange={(e) => setFormData({ ...formData, metadata: e.target.value })}
-                  className="col-span-3"
-                  placeholder='{"key": "value"}'
-                  rows={3}
                 />
               </div>
             </div>
@@ -434,21 +436,21 @@ export default function TransactionManagement() {
                     <TableCell>
                       <div className="flex items-center space-x-3">
                         <Avatar className="h-8 w-8">
-                          <AvatarImage src={transaction.users?.avatar} />
+                          <AvatarImage src={transaction.users?.image} />
                           <AvatarFallback>
                             <User className="h-4 w-4" />
                           </AvatarFallback>
                         </Avatar>
                         <div>
-                          <div className="font-medium">{transaction.users?.name}</div>
+                          <div className="font-medium">{transaction.users?.name || 'No Name'}</div>
                           <div className="text-sm text-muted-foreground">{transaction.users?.email}</div>
                         </div>
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-2">
-                        {getTypeIcon(transaction.type)}
-                        <span className="capitalize">{transaction.type}</span>
+                        {getTypeIcon(transaction.payment_type)}
+                        <span className="capitalize">{transaction.payment_type}</span>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -462,14 +464,19 @@ export default function TransactionManagement() {
                       </Badge>
                     </TableCell>
                     <TableCell className="max-w-xs truncate">
-                      {transaction.description || 'No description'}
+                      <div className="space-y-1">
+                        <div className="text-sm font-medium">{transaction.provider || 'Manual'}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {transaction.provider_payment_id ? `ID: ${transaction.provider_payment_id.slice(0, 12)}...` : 'No payment ID'}
+                        </div>
+                      </div>
                     </TableCell>
                     <TableCell className="text-sm">
                       {new Date(transaction.created_at).toLocaleString()}
                     </TableCell>
                     <TableCell className="text-sm">
-                      {transaction.processed_at ? 
-                        new Date(transaction.processed_at).toLocaleString() : 
+                      {transaction.payment_date ? 
+                        new Date(transaction.payment_date).toLocaleString() : 
                         'Not processed'
                       }
                     </TableCell>
@@ -477,13 +484,43 @@ export default function TransactionManagement() {
                 )) : (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-8">
-                      <p className="text-muted-foreground">No transactions found.</p>
+                      <p className="text-muted-foreground">No transactions found. Check your database connection or create a new transaction.</p>
                     </TableCell>
                   </TableRow>
                 )}
               </TableBody>
             </Table>
           </div>
+          
+          {/* Pagination */}
+          {pagination.pages > 1 && (
+            <div className="flex items-center justify-between px-2 py-4">
+              <div className="text-sm text-muted-foreground">
+                Showing {((currentPage - 1) * 10) + 1} to {Math.min(currentPage * 10, pagination.total)} of {pagination.total} results
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </Button>
+                <div className="text-sm">
+                  Page {currentPage} of {pagination.pages}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(Math.min(pagination.pages, currentPage + 1))}
+                  disabled={currentPage === pagination.pages}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

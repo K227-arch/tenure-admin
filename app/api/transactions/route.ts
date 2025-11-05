@@ -12,16 +12,16 @@ export async function GET(request: Request) {
 
     const offset = (page - 1) * limit;
 
-    // Build query
+    // Build query using user_payments table
     let query = supabaseAdmin
-      .from('transactions')
+      .from('user_payments')
       .select(`
         *,
         users!inner(
           id,
           name,
           email,
-          avatar
+          image
         )
       `)
       .order('created_at', { ascending: false });
@@ -32,7 +32,7 @@ export async function GET(request: Request) {
     }
 
     if (type && type !== 'all') {
-      query = query.eq('type', type);
+      query = query.eq('payment_type', type);
     }
 
     if (search) {
@@ -41,7 +41,7 @@ export async function GET(request: Request) {
 
     // Get total count
     const { count } = await supabaseAdmin
-      .from('transactions')
+      .from('user_payments')
       .select('*', { count: 'exact', head: true });
 
     // Get paginated data
@@ -75,16 +75,17 @@ export async function POST(request: Request) {
     const body = await request.json();
     
     const { data: transaction, error } = await supabaseAdmin
-      .from('transactions')
+      .from('user_payments')
       .insert([{
         user_id: body.user_id,
-        type: body.type,
+        payment_type: body.type,
         amount: body.amount,
         currency: body.currency || 'USD',
         status: body.status || 'pending',
-        description: body.description,
+        provider: body.provider || 'manual',
+        payment_date: new Date().toISOString(),
         metadata: body.metadata || null,
-        processed_at: body.status === 'completed' ? new Date().toISOString() : null
+        is_first_payment: false
       }])
       .select()
       .single();

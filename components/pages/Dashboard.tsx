@@ -25,13 +25,7 @@ async function fetchDashboardStats() {
   return response.json();
 }
 
-async function fetchUserActivity() {
-  const response = await fetch('/api/users/activity');
-  if (!response.ok) {
-    throw new Error('Failed to fetch user activity');
-  }
-  return response.json();
-}
+// User activity not available with current schema
 
 export default function Dashboard() {
   const { data, isLoading, error } = useQuery({
@@ -40,11 +34,8 @@ export default function Dashboard() {
     refetchInterval: 30000, // Refetch every 30 seconds for real-time data
   });
 
-  const { data: activityData } = useQuery({
-    queryKey: ['user-activity'],
-    queryFn: fetchUserActivity,
-    refetchInterval: 30000, // Real-time activity updates
-  });
+  // Activity data not available with current schema
+  const activityData = null;
 
   // Use only real API data from Supabase
   const revenueData = data?.charts?.revenueData || [];

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,53 +19,26 @@ import {
 import { Trophy, CheckCircle, XCircle, AlertCircle, Play } from "lucide-react";
 import { toast } from "sonner";
 
-const eligibleMembers = [
-  {
-    id: "M001",
-    name: "John Doe",
-    tenureMonths: 12,
-    totalPaid: 3600,
-    prepaymentStatus: "completed",
-  },
-  {
-    id: "M002",
-    name: "Jane Smith",
-    tenureMonths: 12,
-    totalPaid: 3600,
-    prepaymentStatus: "completed",
-  },
-  {
-    id: "M005",
-    name: "Sarah Wilson",
-    tenureMonths: 12,
-    totalPaid: 3600,
-    prepaymentStatus: "pending",
-  },
-];
+async function fetchPayoutData() {
+  const [payoutsRes, queueRes] = await Promise.allSettled([
+    fetch('/api/payouts'),
+    fetch('/api/membership-queue')
+  ]);
 
-const payoutHistory = [
-  {
-    date: "2024-12-01",
-    winner: "Michael Brown",
-    amount: 42000,
-    status: "completed",
-  },
-  {
-    date: "2023-12-01",
-    winner: "Emily Davis",
-    amount: 38000,
-    status: "completed",
-  },
-  {
-    date: "2022-12-01",
-    winner: "David Miller",
-    amount: 35000,
-    status: "completed",
-  },
-];
+  return {
+    payouts: payoutsRes.status === 'fulfilled' ? await payoutsRes.value.json() : { payouts: [] },
+    queue: queueRes.status === 'fulfilled' ? await queueRes.value.json() : { members: [] },
+  };
+}
 
 export default function Payouts() {
   const [isProcessing, setIsProcessing] = useState(false);
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['payout-data'],
+    queryFn: fetchPayoutData,
+    refetchInterval: 60000, // Refetch every minute
+  });
 
   const handleTriggerPayout = () => {
     setIsProcessing(true);

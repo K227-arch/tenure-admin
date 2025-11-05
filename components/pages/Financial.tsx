@@ -247,7 +247,7 @@ export default function Financial() {
                       {transaction.users?.name || 'Unknown User'}
                     </p>
                     <p className="text-sm text-muted-foreground capitalize">
-                      {transaction.type} - {transaction.description || 'No description'}
+                      {transaction.payment_type} - {transaction.provider || 'Manual'}
                     </p>
                   </div>
                   <div className="text-right">

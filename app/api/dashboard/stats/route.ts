@@ -134,23 +134,23 @@ async function fetchSupabaseStats(thirtyDaysAgo: Date, sixMonthsAgo: Date) {
     .select('id', { count: 'exact' })
     .lte('created_at', lastMonth.toISOString());
 
-  // Get transaction stats
+  // Get transaction stats from user_payments
   const { data: transactions } = await supabaseAdmin
-    .from('transactions')
+    .from('user_payments')
     .select('amount, created_at, status')
     .gte('created_at', sixMonthsAgo.toISOString());
 
   const { data: allTransactions, count: totalTransactionsCount } = await supabaseAdmin
-    .from('transactions')
+    .from('user_payments')
     .select('id', { count: 'exact' });
 
   const totalRevenue = transactions
-    ?.filter(t => t.status === 'completed')
+    ?.filter(t => t.status === 'completed' || t.status === 'succeeded')
     .reduce((sum, t) => sum + (t.amount || 0), 0) || 0;
 
   // Calculate last month revenue for comparison
   const lastMonthRevenue = transactions
-    ?.filter(t => t.status === 'completed' && new Date(t.created_at) <= lastMonth)
+    ?.filter(t => (t.status === 'completed' || t.status === 'succeeded') && new Date(t.created_at) <= lastMonth)
     .reduce((sum, t) => sum + (t.amount || 0), 0) || 0;
 
   // Generate monthly revenue data
@@ -166,7 +166,7 @@ async function fetchSupabaseStats(thirtyDaysAgo: Date, sixMonthsAgo: Date) {
 
     const monthTransactions = transactions?.filter(t => {
       const tDate = new Date(t.created_at);
-      return tDate >= monthStart && tDate <= monthEnd && t.status === 'completed';
+      return tDate >= monthStart && tDate <= monthEnd && (t.status === 'completed' || t.status === 'succeeded');
     }) || [];
 
     revenueData.push({
@@ -213,11 +213,12 @@ async function fetchSupabaseStats(thirtyDaysAgo: Date, sixMonthsAgo: Date) {
     .limit(5);
 
   const { data: recentTransactions } = await supabaseAdmin
-    .from('transactions')
+    .from('user_payments')
     .select(`
       amount,
       currency,
       status,
+      payment_type,
       created_at,
       users(name, email)
     `)
@@ -240,7 +241,7 @@ async function fetchSupabaseStats(thirtyDaysAgo: Date, sixMonthsAgo: Date) {
   // Add recent transactions
   recentTransactions?.forEach(transaction => {
     recentActivity.push({
-      action: transaction.status === 'completed' ? 'Payment received' : 'Transaction processed',
+      action: (transaction.status === 'completed' || transaction.status === 'succeeded') ? 'Payment received' : 'Transaction processed',
       user: transaction.users?.name || transaction.users?.email || 'Unknown',
       time: new Date(transaction.created_at).toLocaleString()
     });

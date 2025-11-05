@@ -112,11 +112,10 @@ export default function UserManagement() {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    phone: '',
-    status: 'active',
-    role: 'member',
-    membershipType: 'basic',
-    address: ''
+    status: 'Pending',
+    image: '',
+    email_verified: false,
+    two_factor_enabled: false
   });
 
   const queryClient = useQueryClient();
@@ -175,20 +174,15 @@ export default function UserManagement() {
     setFormData({
       name: '',
       email: '',
-      phone: '',
-      status: 'active',
-      role: 'member',
-      membershipType: 'basic',
-      address: ''
+      status: 'Pending',
+      image: '',
+      email_verified: false,
+      two_factor_enabled: false
     });
   };
 
   const handleCreate = () => {
-    const userData = {
-      ...formData,
-      address: formData.address ? JSON.parse(formData.address) : null
-    };
-    createMutation.mutate(userData);
+    createMutation.mutate(formData);
   };
 
   const handleEdit = (user: any) => {
@@ -196,22 +190,17 @@ export default function UserManagement() {
     setFormData({
       name: user.name || '',
       email: user.email || '',
-      phone: user.phone || '',
-      status: user.status || 'active',
-      role: user.role || 'member',
-      membershipType: user.membership_type || 'basic',
-      address: user.address ? JSON.stringify(user.address, null, 2) : ''
+      status: user.status || 'Pending',
+      image: user.image || '',
+      email_verified: user.email_verified || false,
+      two_factor_enabled: user.two_factor_enabled || false
     });
     setIsEditDialogOpen(true);
   };
 
   const handleUpdate = () => {
     if (!selectedUser) return;
-    const userData = {
-      ...formData,
-      address: formData.address ? JSON.parse(formData.address) : null
-    };
-    updateMutation.mutate({ id: selectedUser.id, data: userData });
+    updateMutation.mutate({ id: selectedUser.id, data: formData });
   };
 
   const handleDelete = (userId: string) => {
@@ -292,13 +281,13 @@ export default function UserManagement() {
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="phone" className="text-right">Phone</Label>
+                <Label htmlFor="image" className="text-right">Image URL</Label>
                 <Input
-                  id="phone"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  id="image"
+                  value={formData.image}
+                  onChange={(e) => setFormData({ ...formData, image: e.target.value })}
                   className="col-span-3"
-                  placeholder="+1 234 567 8900"
+                  placeholder="https://example.com/avatar.jpg"
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
@@ -308,35 +297,33 @@ export default function UserManagement() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
-                    <SelectItem value="suspended">Suspended</SelectItem>
+                    <SelectItem value="Active">Active</SelectItem>
+                    <SelectItem value="Pending">Pending</SelectItem>
+                    <SelectItem value="Suspended">Suspended</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="role" className="text-right">Role</Label>
-                <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
+                <Label htmlFor="email_verified" className="text-right">Email Verified</Label>
+                <Select value={formData.email_verified.toString()} onValueChange={(value) => setFormData({ ...formData, email_verified: value === 'true' })}>
                   <SelectTrigger className="col-span-3">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="member">Member</SelectItem>
-                    <SelectItem value="moderator">Moderator</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="true">Verified</SelectItem>
+                    <SelectItem value="false">Unverified</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="membershipType" className="text-right">Membership</Label>
-                <Select value={formData.membershipType} onValueChange={(value) => setFormData({ ...formData, membershipType: value })}>
+                <Label htmlFor="two_factor_enabled" className="text-right">2FA Enabled</Label>
+                <Select value={formData.two_factor_enabled.toString()} onValueChange={(value) => setFormData({ ...formData, two_factor_enabled: value === 'true' })}>
                   <SelectTrigger className="col-span-3">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="basic">Basic</SelectItem>
-                    <SelectItem value="premium">Premium</SelectItem>
-                    <SelectItem value="enterprise">Enterprise</SelectItem>
+                    <SelectItem value="true">Enabled</SelectItem>
+                    <SelectItem value="false">Disabled</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -403,8 +390,9 @@ export default function UserManagement() {
               </TableHeader>
               <TableBody>
                 {users.length > 0 ? users.map((user) => {
-                  const isOnline = user.last_active && 
-                    (new Date().getTime() - new Date(user.last_active).getTime()) < 30 * 60 * 1000; // 30 minutes
+                  // Since we don't have last_active, we'll show status based on recent updates
+                  const isRecentlyActive = user.updated_at && 
+                    (new Date().getTime() - new Date(user.updated_at).getTime()) < 24 * 60 * 60 * 1000; // 24 hours
                   
                   return (
                   <TableRow key={user.id}>
@@ -412,17 +400,17 @@ export default function UserManagement() {
                       <div className="flex items-center space-x-3">
                         <div className="relative">
                           <Avatar className="h-10 w-10">
-                            <AvatarImage src={user.avatar} alt={user.name} />
+                            <AvatarImage src={user.image} alt={user.name} />
                             <AvatarFallback>
                               <User className="h-5 w-5" />
                             </AvatarFallback>
                           </Avatar>
-                          {isOnline && (
+                          {isRecentlyActive && (
                             <div className="absolute -bottom-1 -right-1 h-3 w-3 bg-green-500 border-2 border-background rounded-full"></div>
                           )}
                         </div>
                         <div>
-                          <div className="font-medium">{user.name}</div>
+                          <div className="font-medium">{user.name || 'No Name'}</div>
                           <div className="text-sm text-muted-foreground">{user.id.slice(0, 8)}...</div>
                         </div>
                       </div>
@@ -435,21 +423,18 @@ export default function UserManagement() {
                             {user.email}
                           </span>
                         </div>
-                        {user.phone && (
-                          <div className="flex items-center text-sm">
-                            <Phone className="h-3 w-3 mr-2 text-muted-foreground" />
-                            <span className="text-muted-foreground">
-                              {user.phone}
-                            </span>
-                          </div>
-                        )}
+                        <div className="flex items-center text-sm">
+                          <span className={`text-xs px-2 py-1 rounded ${user.email_verified ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                            {user.email_verified ? 'Verified' : 'Unverified'}
+                          </span>
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell>
                       <Badge
                         variant={
-                          user.status === "active" ? "default" : 
-                          user.status === "suspended" ? "destructive" : "secondary"
+                          user.status === "Active" ? "default" : 
+                          user.status === "Suspended" ? "destructive" : "secondary"
                         }
                       >
                         {user.status}
@@ -459,21 +444,24 @@ export default function UserManagement() {
                       <div className="flex items-center text-sm">
                         <Clock className="h-3 w-3 mr-2 text-muted-foreground" />
                         <div>
-                          {isOnline ? (
-                            <span className="text-green-600 font-medium">Online</span>
-                          ) : user.last_active ? (
-                            <span className="text-muted-foreground">
-                              {new Date(user.last_active).toLocaleDateString()}
-                            </span>
+                          {isRecentlyActive ? (
+                            <span className="text-green-600 font-medium">Recently Active</span>
                           ) : (
-                            <span className="text-muted-foreground">Never</span>
+                            <span className="text-muted-foreground">
+                              Updated: {new Date(user.updated_at).toLocaleDateString()}
+                            </span>
                           )}
                         </div>
                       </div>
                     </TableCell>
                     <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
                     <TableCell className="text-right">
-                      {user.membership_type || 'Basic'}
+                      <div className="flex items-center justify-end space-x-2">
+                        {user.two_factor_enabled && (
+                          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">2FA</span>
+                        )}
+                        <span className="text-sm">Member</span>
+                      </div>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
@@ -551,11 +539,11 @@ export default function UserManagement() {
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-phone" className="text-right">Phone</Label>
+              <Label htmlFor="edit-image" className="text-right">Image URL</Label>
               <Input
-                id="edit-phone"
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                id="edit-image"
+                value={formData.image}
+                onChange={(e) => setFormData({ ...formData, image: e.target.value })}
                 className="col-span-3"
               />
             </div>
@@ -566,35 +554,33 @@ export default function UserManagement() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                  <SelectItem value="suspended">Suspended</SelectItem>
+                  <SelectItem value="Active">Active</SelectItem>
+                  <SelectItem value="Pending">Pending</SelectItem>
+                  <SelectItem value="Suspended">Suspended</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-role" className="text-right">Role</Label>
-              <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
+              <Label htmlFor="edit-email_verified" className="text-right">Email Verified</Label>
+              <Select value={formData.email_verified.toString()} onValueChange={(value) => setFormData({ ...formData, email_verified: value === 'true' })}>
                 <SelectTrigger className="col-span-3">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="member">Member</SelectItem>
-                  <SelectItem value="moderator">Moderator</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="true">Verified</SelectItem>
+                  <SelectItem value="false">Unverified</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-membershipType" className="text-right">Membership</Label>
-              <Select value={formData.membershipType} onValueChange={(value) => setFormData({ ...formData, membershipType: value })}>
+              <Label htmlFor="edit-two_factor_enabled" className="text-right">2FA Enabled</Label>
+              <Select value={formData.two_factor_enabled.toString()} onValueChange={(value) => setFormData({ ...formData, two_factor_enabled: value === 'true' })}>
                 <SelectTrigger className="col-span-3">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="basic">Basic</SelectItem>
-                  <SelectItem value="premium">Premium</SelectItem>
-                  <SelectItem value="enterprise">Enterprise</SelectItem>
+                  <SelectItem value="true">Enabled</SelectItem>
+                  <SelectItem value="false">Disabled</SelectItem>
                 </SelectContent>
               </Select>
             </div>

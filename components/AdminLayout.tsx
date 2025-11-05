@@ -22,7 +22,6 @@ import { cn } from "@/lib/utils";
 const navigationItems = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "User Management", href: "/users", icon: Users },
-  { name: "User Activity", href: "/activity", icon: Activity },
   { name: "Subscriptions", href: "/subscriptions", icon: CreditCard },
   { name: "Transactions", href: "/transactions", icon: Receipt },
   { name: "Financial Reports", href: "/financial", icon: DollarSign },

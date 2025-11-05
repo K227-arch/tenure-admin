@@ -12,21 +12,18 @@ export async function GET(request: NextRequest) {
 
     const offset = (page - 1) * limit;
 
-    // Build query with all fields including avatar and activity data
+    // Build query with actual database fields
     let query = supabaseAdmin
       .from('users')
       .select(`
         id,
+        auth_user_id,
         email,
-        name,
-        role,
+        email_verified,
         status,
-        membership_type,
-        joined_at,
-        last_active,
-        avatar,
-        phone,
-        address,
+        name,
+        image,
+        two_factor_enabled,
         created_at,
         updated_at
       `, { count: 'exact' });
@@ -77,14 +74,10 @@ export async function POST(request: NextRequest) {
     const userData = {
       email,
       name,
-      role: role || 'member',
-      status: body.status || 'active',
-      membership_type: membershipType,
-      phone,
-      address,
-      avatar: body.avatar || null,
-      joined_at: new Date().toISOString(),
-      last_active: new Date().toISOString(),
+      status: body.status || 'Pending',
+      image: body.image || null,
+      email_verified: false,
+      two_factor_enabled: false,
     };
 
     const { data: newUser, error } = await supabaseAdmin

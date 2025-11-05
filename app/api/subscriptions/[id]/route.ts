@@ -9,12 +9,12 @@ export async function PUT(
     const body = await request.json();
     
     const { data: subscription, error } = await supabaseAdmin
-      .from('subscriptions')
+      .from('user_subscriptions')
       .update({
         status: body.status,
         current_period_start: body.current_period_start,
         current_period_end: body.current_period_end,
-        plan_id: body.plan_id,
+        cancel_at_period_end: body.cancel_at_period_end || false,
         updated_at: new Date().toISOString()
       })
       .eq('id', params.id)
@@ -41,7 +41,7 @@ export async function DELETE(
 ) {
   try {
     const { error } = await supabaseAdmin
-      .from('subscriptions')
+      .from('user_subscriptions')
       .delete()
       .eq('id', params.id);
 

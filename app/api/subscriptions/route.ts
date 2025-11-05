@@ -11,16 +11,16 @@ export async function GET(request: Request) {
 
     const offset = (page - 1) * limit;
 
-    // Build query
+    // Build query using user_subscriptions table
     let query = supabaseAdmin
-      .from('subscriptions')
+      .from('user_subscriptions')
       .select(`
         *,
         users!inner(
           id,
           name,
           email,
-          avatar
+          image
         )
       `)
       .order('created_at', { ascending: false });
@@ -36,7 +36,7 @@ export async function GET(request: Request) {
 
     // Get total count
     const { count } = await supabaseAdmin
-      .from('subscriptions')
+      .from('user_subscriptions')
       .select('*', { count: 'exact', head: true });
 
     // Get paginated data
@@ -70,14 +70,16 @@ export async function POST(request: Request) {
     const body = await request.json();
     
     const { data: subscription, error } = await supabaseAdmin
-      .from('subscriptions')
+      .from('user_subscriptions')
       .insert([{
         user_id: body.user_id,
-        stripe_subscription_id: body.stripe_subscription_id,
+        provider: body.provider || 'stripe',
+        provider_subscription_id: body.stripe_subscription_id,
+        provider_customer_id: body.provider_customer_id || '',
         status: body.status || 'active',
         current_period_start: body.current_period_start,
         current_period_end: body.current_period_end,
-        plan_id: body.plan_id
+        cancel_at_period_end: false
       }])
       .select()
       .single();
