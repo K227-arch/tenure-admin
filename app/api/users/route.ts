@@ -12,28 +12,16 @@ export async function GET(request: NextRequest) {
 
     const offset = (page - 1) * limit;
 
-<<<<<<< HEAD
-    // Build query with actual database fields
-=======
     // Build query using actual columns present in public.users
->>>>>>> efa2392 (dd)
     let query = supabaseAdmin
       .from('users')
       .select(`
         id,
         auth_user_id,
         email,
-<<<<<<< HEAD
-        email_verified,
-        status,
-        name,
-        image,
-        two_factor_enabled,
-=======
         name,
         image,
         status,
->>>>>>> efa2392 (dd)
         created_at,
         updated_at
       `, { count: 'exact' });
@@ -102,14 +90,8 @@ export async function POST(request: NextRequest) {
       email,
       name,
       status: body.status || 'Pending',
-<<<<<<< HEAD
-      image: body.image || null,
-      email_verified: false,
-      two_factor_enabled: false,
-=======
-      image: body.avatar || null,
+      image: body.avatar || body.image || null,
       updated_at: new Date().toISOString(),
->>>>>>> efa2392 (dd)
     };
 
     const { data: newUser, error } = await supabaseAdmin

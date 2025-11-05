@@ -49,6 +49,32 @@ export default function Payouts() {
     }, 2000);
   };
 
+  // Extract eligible members from queue data
+  const eligibleMembers = data?.queue?.members || [];
+  const payoutHistory = data?.payouts?.payouts || [];
+
+  if (isLoading) {
+    return (
+      <div className="space-y-8">
+        <div>
+          <h1 className="text-4xl font-bold text-foreground mb-2">Payout Management</h1>
+          <p className="text-muted-foreground">Loading payout data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-8">
+        <div>
+          <h1 className="text-4xl font-bold text-foreground mb-2">Payout Management</h1>
+          <p className="text-muted-foreground text-red-500">Error loading payout data. Please check your database connection.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -148,13 +174,12 @@ export default function Payouts() {
                 <div className="space-y-1">
                   <div className="flex items-center gap-3">
                     <p className="font-semibold text-foreground">
-                      {member.name}
+                      {member.users?.name || 'Unknown Member'}
                     </p>
-                    <Badge variant="secondary">{member.id}</Badge>
+                    <Badge variant="secondary">#{member.queue_position || member.id}</Badge>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Tenure: {member.tenureMonths} months | Total Paid: $
-                    {member.totalPaid}
+                    Queue Position: {member.queue_position} | Status: {member.status || 'Active'}
                   </p>
                 </div>
                 <div className="flex items-center gap-4">
@@ -191,27 +216,31 @@ export default function Payouts() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {payoutHistory.map((payout, index) => (
+            {payoutHistory.length > 0 ? payoutHistory.map((payout, index) => (
               <div
                 key={index}
                 className="flex items-center justify-between border-b border-border pb-4 last:border-0"
               >
                 <div>
-                  <p className="font-semibold text-foreground">{payout.winner}</p>
-                  <p className="text-sm text-muted-foreground">{payout.date}</p>
+                  <p className="font-semibold text-foreground">{payout.winner || payout.user_name || 'Unknown Winner'}</p>
+                  <p className="text-sm text-muted-foreground">{payout.date || payout.created_at || 'Unknown Date'}</p>
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="text-right">
                     <p className="font-semibold text-foreground">
-                      ${payout.amount.toLocaleString()}
+                      ${(payout.amount || 0).toLocaleString()}
                     </p>
                     <Badge variant="default" className="bg-success">
-                      {payout.status}
+                      {payout.status || 'Completed'}
                     </Badge>
                   </div>
                 </div>
               </div>
-            ))}
+            )) : (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">No payout history available.</p>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

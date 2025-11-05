@@ -239,7 +239,7 @@ async function fetchSupabaseStats(thirtyDaysAgo: Date, sixMonthsAgo: Date) {
   });
 
   // Add recent transactions
-  recentTransactions?.forEach(transaction => {
+  recentTransactions?.forEach((transaction: any) => {
     recentActivity.push({
       action: (transaction.status === 'completed' || transaction.status === 'succeeded') ? 'Payment received' : 'Transaction processed',
       user: transaction.users?.name || transaction.users?.email || 'Unknown',

@@ -158,17 +158,14 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     });
   };
 
-<<<<<<< HEAD
-  const handleCreate = () => {
-    createMutation.mutate(formData);
-=======
+
+
   const handleSuspend = (userId: string) => {
     updateMutation.mutate({ id: userId, data: { status: 'suspended' } });
   };
 
   const handleBlock = (userId: string) => {
     updateMutation.mutate({ id: userId, data: { status: 'blocked' } });
->>>>>>> efa2392 (dd)
   };
 
   const handleEdit = (user: any) => {
@@ -230,101 +227,7 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
             View and manage all members in your system.
           </p>
         </div>
-<<<<<<< HEAD
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={() => resetForm()}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add User
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Create New User</DialogTitle>
-              <DialogDescription>
-                Add a new user to the system. Fill in the required information below.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="name" className="text-right">Name</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="col-span-3"
-                  placeholder="John Doe"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="email" className="text-right">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="col-span-3"
-                  placeholder="john@example.com"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="image" className="text-right">Image URL</Label>
-                <Input
-                  id="image"
-                  value={formData.image}
-                  onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-                  className="col-span-3"
-                  placeholder="https://example.com/avatar.jpg"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="status" className="text-right">Status</Label>
-                <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Active">Active</SelectItem>
-                    <SelectItem value="Pending">Pending</SelectItem>
-                    <SelectItem value="Suspended">Suspended</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="email_verified" className="text-right">Email Verified</Label>
-                <Select value={formData.email_verified.toString()} onValueChange={(value) => setFormData({ ...formData, email_verified: value === 'true' })}>
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="true">Verified</SelectItem>
-                    <SelectItem value="false">Unverified</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="two_factor_enabled" className="text-right">2FA Enabled</Label>
-                <Select value={formData.two_factor_enabled.toString()} onValueChange={(value) => setFormData({ ...formData, two_factor_enabled: value === 'true' })}>
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="true">Enabled</SelectItem>
-                    <SelectItem value="false">Disabled</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button type="submit" onClick={handleCreate} disabled={createMutation.isPending}>
-                {createMutation.isPending ? 'Creating...' : 'Create User'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-=======
-        {/* Add User removed */}
->>>>>>> efa2392 (dd)
+        {/* Add User functionality removed - users are managed through authentication system */}
       </div>
 
       {/* Filters */}
