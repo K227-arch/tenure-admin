@@ -43,7 +43,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Search, Filter, Plus, Edit, Trash2, CreditCard, Calendar, User } from "lucide-react";
+import { Search, Filter, Plus, Edit, Trash2, CreditCard, Calendar, User, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 async function fetchSubscriptions(page = 1, search = '', status = '') {
@@ -188,7 +188,7 @@ export default function SubscriptionManagement() {
     setSelectedSubscription(subscription);
     setFormData({
       user_id: subscription.user_id,
-      stripe_subscription_id: subscription.provider_subscription_id || '',
+      stripe_subscription_id: subscription.provider_subscription_id || subscription.stripe_subscription_id || '',
       provider: subscription.provider || 'stripe',
       status: subscription.status,
       current_period_start: subscription.current_period_start?.split('T')[0] || '',
@@ -227,7 +227,19 @@ export default function SubscriptionManagement() {
       <div className="space-y-8">
         <div>
           <h1 className="text-4xl font-bold text-foreground mb-2">Subscription Management</h1>
-          <p className="text-muted-foreground">Loading subscriptions from database...</p>
+          <p className="text-muted-foreground">Loading real-time subscription data from Supabase...</p>
+        </div>
+        <div className="grid gap-6 md:grid-cols-5">
+          {[...Array(5)].map((_, i) => (
+            <Card key={i} className="shadow-card">
+              <CardHeader className="pb-2">
+                <div className="h-4 bg-muted rounded animate-pulse"></div>
+              </CardHeader>
+              <CardContent>
+                <div className="h-8 bg-muted rounded animate-pulse"></div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </div>
     );
@@ -268,13 +280,18 @@ export default function SubscriptionManagement() {
             Manage all user subscriptions and billing cycles.
           </p>
         </div>
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={() => resetForm()}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Subscription
-            </Button>
-          </DialogTrigger>
+        <div className="flex gap-2">
+          <Button onClick={() => refetch()} variant="outline">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={() => resetForm()}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Subscription
+              </Button>
+            </DialogTrigger>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
               <DialogTitle>Create New Subscription</DialogTitle>
@@ -368,6 +385,7 @@ export default function SubscriptionManagement() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Stats */}
@@ -484,7 +502,7 @@ export default function SubscriptionManagement() {
                       </div>
                     </TableCell>
                     <TableCell className="font-mono text-sm">
-                      {subscription.provider_subscription_id || 'N/A'}
+                      {subscription.provider_subscription_id || subscription.stripe_subscription_id || 'N/A'}
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">{subscription.provider || 'Manual'}</Badge>

@@ -15,14 +15,28 @@ import {
   ChevronRight,
   CreditCard,
   Receipt,
-  Activity,
+  User,
+  LogOut,
+  Bell,
+  ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { useAdminUser } from "@/hooks/useAdminUser";
 
 const navigationItems = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "User Management", href: "/users", icon: Users },
-  { name: "User Activity", href: "/activity", icon: Activity },
   { name: "Subscriptions", href: "/subscriptions", icon: CreditCard },
   { name: "Transactions", href: "/transactions", icon: Receipt },
   { name: "Financial Reports", href: "/financial", icon: DollarSign },
@@ -39,6 +53,7 @@ interface AdminLayoutProps {
 export function AdminLayout({ children }: AdminLayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
+  const { adminUser, logout } = useAdminUser();
 
   return (
     <div className="flex min-h-screen w-full bg-background">
@@ -102,6 +117,88 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           collapsed ? "ml-16" : "ml-64"
         )}
       >
+        {/* Top Navbar */}
+        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-background px-6">
+          <div className="flex items-center gap-4">
+            <h2 className="text-lg font-semibold text-foreground">Admin Dashboard</h2>
+            <div className="hidden md:block text-sm text-muted-foreground">
+              {new Date().toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+              })}
+            </div>
+          </div>
+          
+          {/* Profile Section */}
+          <div className="flex items-center gap-4">
+            {/* Notifications */}
+            <Button variant="ghost" size="sm" className="relative">
+              <Bell className="h-4 w-4" />
+              <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 text-xs">
+                3
+              </Badge>
+            </Button>
+
+            {/* Profile Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="flex items-center gap-3 px-3 py-2 h-auto">
+                  <div className="text-right hidden sm:block">
+                    <p className="text-sm font-medium text-foreground">{adminUser.name}</p>
+                    <p className="text-xs text-muted-foreground">{adminUser.email}</p>
+                  </div>
+                  <div className="relative">
+                    <Avatar className="h-8 w-8">
+                      {adminUser.avatar && <AvatarImage src={adminUser.avatar} alt={adminUser.name} />}
+                      <AvatarFallback className="bg-primary text-primary-foreground">
+                        {adminUser.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    {adminUser.isOnline && (
+                      <div className="absolute -bottom-1 -right-1 h-3 w-3 rounded-full bg-green-500 border-2 border-background"></div>
+                    )}
+                  </div>
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">{adminUser.name}</p>
+                    <p className="text-xs leading-none text-muted-foreground">
+                      {adminUser.email}
+                    </p>
+                    <Badge variant="secondary" className="w-fit text-xs">
+                      {adminUser.role}
+                    </Badge>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem>
+                  <User className="mr-2 h-4 w-4" />
+                  <span>Profile</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Settings className="mr-2 h-4 w-4" />
+                  <span>Settings</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Bell className="mr-2 h-4 w-4" />
+                  <span>Notifications</span>
+                  <Badge className="ml-auto">3</Badge>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="text-red-600" onClick={logout}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Log out</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </header>
+        
         <main className="p-8">{children}</main>
       </div>
     </div>

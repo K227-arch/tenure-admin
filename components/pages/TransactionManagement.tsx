@@ -1,14 +1,11 @@
 'use client'
 
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -24,26 +21,30 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Search, Filter, Plus, DollarSign, TrendingUp, TrendingDown, Clock, User } from "lucide-react";
+import { 
+  Search, 
+  Filter, 
+  Download, 
+  RefreshCw,
+  DollarSign,
+  TrendingUp,
+  TrendingDown,
+  Clock,
+  CheckCircle,
+  XCircle,
+  AlertCircle
+} from "lucide-react";
 import { toast } from "sonner";
 
 async function fetchTransactions(page = 1, search = '', status = '', type = '') {
   const params = new URLSearchParams({
     page: page.toString(),
-    limit: '10',
-    ...(search && { search }),
-    ...(status && status !== 'all' && { status }),
-    ...(type && type !== 'all' && { type })
+    limit: '20',
   });
+  
+  if (search) params.append('search', search);
+  if (status && status !== 'all') params.append('status', status);
+  if (type && type !== 'all') params.append('type', type);
   
   const response = await fetch(`/api/transactions?${params}`);
   if (!response.ok) {
@@ -52,14 +53,10 @@ async function fetchTransactions(page = 1, search = '', status = '', type = '') 
   return response.json();
 }
 
-async function createTransaction(transactionData: any) {
-  const response = await fetch('/api/transactions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(transactionData),
-  });
+async function fetchTransactionStats() {
+  const response = await fetch('/api/analytics/financial');
   if (!response.ok) {
-    throw new Error('Failed to create transaction');
+    throw new Error('Failed to fetch transaction stats');
   }
   return response.json();
 }
@@ -69,41 +66,17 @@ export default function TransactionManagement() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
-  
-  // Dialog states
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  
-  // Form states
-  const [formData, setFormData] = useState({
-    user_id: '',
-    type: 'payment',
-    amount: '',
-    currency: 'USD',
-    status: 'pending',
-    provider: 'manual',
-    description: ''
-  });
 
-  const queryClient = useQueryClient();
-
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data: transactionData, isLoading, error, refetch } = useQuery({
     queryKey: ['transactions', currentPage, searchTerm, statusFilter, typeFilter],
     queryFn: () => fetchTransactions(currentPage, searchTerm, statusFilter, typeFilter),
-    refetchInterval: 15000, // Real-time updates every 15 seconds
+    refetchInterval: 30000, // Refetch every 30 seconds for real-time updates
   });
 
-  // Mutations
-  const createMutation = useMutation({
-    mutationFn: createTransaction,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['transactions'] });
-      setIsCreateDialogOpen(false);
-      resetForm();
-      toast.success('Transaction created successfully!');
-    },
-    onError: (error) => {
-      toast.error('Failed to create transaction: ' + error.message);
-    },
+  const { data: statsData } = useQuery({
+    queryKey: ['transaction-stats'],
+    queryFn: fetchTransactionStats,
+    refetchInterval: 60000, // Refetch every minute
   });
 
   const handleSearch = () => {
@@ -111,53 +84,13 @@ export default function TransactionManagement() {
     refetch();
   };
 
-  const resetForm = () => {
-    setFormData({
-      user_id: '',
-      type: 'payment',
-      amount: '',
-      currency: 'USD',
-      status: 'pending',
-      provider: 'manual',
-      description: ''
-    });
+  const handleRefresh = () => {
+    refetch();
+    toast.success("Transactions refreshed!");
   };
 
-  const handleCreate = () => {
-    const transactionData = {
-      ...formData,
-      amount: parseFloat(formData.amount)
-    };
-    createMutation.mutate(transactionData);
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed':
-      case 'succeeded':
-        return 'default';
-      case 'failed':
-        return 'destructive';
-      case 'pending':
-        return 'secondary';
-      case 'refunded':
-        return 'outline';
-      default:
-        return 'secondary';
-    }
-  };
-
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'payment':
-        return <TrendingUp className="h-4 w-4 text-success" />;
-      case 'refund':
-        return <TrendingDown className="h-4 w-4 text-destructive" />;
-      case 'fee':
-        return <DollarSign className="h-4 w-4 text-warning" />;
-      default:
-        return <Clock className="h-4 w-4 text-muted-foreground" />;
-    }
+  const handleExport = () => {
+    toast.info("Export functionality coming soon!");
   };
 
   if (isLoading) {
@@ -165,7 +98,7 @@ export default function TransactionManagement() {
       <div className="space-y-8">
         <div>
           <h1 className="text-4xl font-bold text-foreground mb-2">Transaction Management</h1>
-          <p className="text-muted-foreground">Loading transactions from database...</p>
+          <p className="text-muted-foreground">Loading real-time transaction data from Supabase...</p>
         </div>
       </div>
     );
@@ -182,24 +115,50 @@ export default function TransactionManagement() {
     );
   }
 
-  const transactions = data?.transactions || [];
-  const pagination = data?.pagination || { page: 1, pages: 1, total: 0 };
+  const transactions = transactionData?.transactions || [];
+  const pagination = transactionData?.pagination || { page: 1, pages: 1, total: 0 };
+  
+  // Calculate stats from current data
+  const totalAmount = transactions.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+  const completedTransactions = transactions.filter(t => t.status === 'completed').length;
+  const pendingTransactions = transactions.filter(t => t.status === 'pending').length;
+  const failedTransactions = transactions.filter(t => t.status === 'failed').length;
 
-  // Calculate stats
-  const stats = {
-    total: transactions.length,
-    completed: transactions.filter(t => t.status === 'completed' || t.status === 'succeeded').length,
-    pending: transactions.filter(t => t.status === 'pending').length,
-    failed: transactions.filter(t => t.status === 'failed').length,
-    totalAmount: transactions
-      .filter(t => t.status === 'completed' || t.status === 'succeeded')
-      .reduce((sum, t) => sum + (t.amount || 0), 0)
-  };
+  const stats = [
+    {
+      title: "Total Transactions",
+      value: pagination.total.toLocaleString(),
+      change: `${transactions.length} on this page`,
+      trend: "up",
+      icon: DollarSign,
+    },
+    {
+      title: "Total Amount",
+      value: `$${totalAmount.toLocaleString()}`,
+      change: "Current page total",
+      trend: "up",
+      icon: TrendingUp,
+    },
+    {
+      title: "Completed",
+      value: completedTransactions.toString(),
+      change: `${((completedTransactions / transactions.length) * 100).toFixed(1)}% success rate`,
+      trend: "up",
+      icon: CheckCircle,
+    },
+    {
+      title: "Pending/Failed",
+      value: (pendingTransactions + failedTransactions).toString(),
+      change: `${pendingTransactions} pending, ${failedTransactions} failed`,
+      trend: failedTransactions > 0 ? "down" : "up",
+      icon: failedTransactions > 0 ? XCircle : Clock,
+    },
+  ];
 
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex justify-between items-start">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-4xl font-bold text-foreground mb-2">
             Transaction Management
@@ -208,204 +167,94 @@ export default function TransactionManagement() {
             Monitor and manage all financial transactions in real-time.
           </p>
         </div>
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={() => resetForm()}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Transaction
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Create New Transaction</DialogTitle>
-              <DialogDescription>
-                Add a new transaction to the system.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="user_id" className="text-right">User ID</Label>
-                <Input
-                  id="user_id"
-                  value={formData.user_id}
-                  onChange={(e) => setFormData({ ...formData, user_id: e.target.value })}
-                  className="col-span-3"
-                  placeholder="User UUID"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="type" className="text-right">Type</Label>
-                <Select value={formData.type} onValueChange={(value) => setFormData({ ...formData, type: value })}>
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="payment">Payment</SelectItem>
-                    <SelectItem value="refund">Refund</SelectItem>
-                    <SelectItem value="fee">Fee</SelectItem>
-                    <SelectItem value="withdrawal">Withdrawal</SelectItem>
-                    <SelectItem value="deposit">Deposit</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="amount" className="text-right">Amount</Label>
-                <Input
-                  id="amount"
-                  type="number"
-                  step="0.01"
-                  value={formData.amount}
-                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                  className="col-span-3"
-                  placeholder="0.00"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="currency" className="text-right">Currency</Label>
-                <Select value={formData.currency} onValueChange={(value) => setFormData({ ...formData, currency: value })}>
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="USD">USD</SelectItem>
-                    <SelectItem value="EUR">EUR</SelectItem>
-                    <SelectItem value="GBP">GBP</SelectItem>
-                    <SelectItem value="UGX">UGX</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="status" className="text-right">Status</Label>
-                <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="failed">Failed</SelectItem>
-                    <SelectItem value="refunded">Refunded</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="provider" className="text-right">Provider</Label>
-                <Select value={formData.provider || 'manual'} onValueChange={(value) => setFormData({ ...formData, provider: value })}>
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="stripe">Stripe</SelectItem>
-                    <SelectItem value="paypal">PayPal</SelectItem>
-                    <SelectItem value="manual">Manual</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="description" className="text-right">Description</Label>
-                <Input
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="col-span-3"
-                  placeholder="Transaction description"
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button type="submit" onClick={handleCreate} disabled={createMutation.isPending}>
-                {createMutation.isPending ? 'Creating...' : 'Create Transaction'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <div className="flex gap-2">
+          <Button onClick={handleRefresh} variant="outline" size="sm">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+          <Button onClick={handleExport} variant="outline" size="sm">
+            <Download className="h-4 w-4 mr-2" />
+            Export
+          </Button>
+        </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid gap-6 md:grid-cols-5">
-        <Card className="shadow-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-foreground">{stats.total}</div>
-          </CardContent>
-        </Card>
-        <Card className="shadow-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Completed</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-success">{stats.completed}</div>
-          </CardContent>
-        </Card>
-        <Card className="shadow-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Pending</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-warning">{stats.pending}</div>
-          </CardContent>
-        </Card>
-        <Card className="shadow-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Failed</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-destructive">{stats.failed}</div>
-          </CardContent>
-        </Card>
-        <Card className="shadow-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Value</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-foreground">${stats.totalAmount.toLocaleString()}</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filters */}
+      {/* Stats Grid */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        {stats.map((stat, index) => (
+          <Card
+            key={index}
+            className="shadow-card hover:shadow-elevated transition-all duration-300"
+          >
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                {stat.title}
+              </CardTitle>
+              <stat.icon className="h-5 w-5 text-primary" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-foreground">
+                {stat.value}
+              </div>
+              <div className="flex items-center mt-1">
+                {stat.trend === "up" ? (
+                  <TrendingUp className="h-4 w-4 text-success mr-1" />
+                ) : (
+                  <TrendingDown className="h-4 w-4 text-destructive mr-1" />
+                )}
+                <span
+                  className={`text-sm ${
+                    stat.trend === "up" ? "text-success" : "text-destructive"
+                  }`}
+                >
+                  {stat.change}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div> 
+     {/* Filters */}
       <Card className="shadow-card">
         <CardContent className="pt-6">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by user name, email, or description..."
+                placeholder="Search by user name, email, or transaction ID..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
                 className="pl-10"
               />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full md:w-[150px]">
-                <Filter className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Status" />
+              <SelectTrigger className="w-full md:w-48">
+                <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="all">All Statuses</SelectItem>
                 <SelectItem value="completed">Completed</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="failed">Failed</SelectItem>
-                <SelectItem value="refunded">Refunded</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
               </SelectContent>
             </Select>
             <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-full md:w-[150px]">
-                <SelectValue placeholder="Type" />
+              <SelectTrigger className="w-full md:w-48">
+                <SelectValue placeholder="Filter by type" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
                 <SelectItem value="payment">Payment</SelectItem>
                 <SelectItem value="refund">Refund</SelectItem>
-                <SelectItem value="fee">Fee</SelectItem>
-                <SelectItem value="withdrawal">Withdrawal</SelectItem>
-                <SelectItem value="deposit">Deposit</SelectItem>
+                <SelectItem value="subscription">Subscription</SelectItem>
+                <SelectItem value="payout">Payout</SelectItem>
               </SelectContent>
             </Select>
             <Button onClick={handleSearch} className="w-full md:w-auto">
-              Search
+              <Filter className="h-4 w-4 mr-2" />
+              Apply Filters
             </Button>
           </div>
         </CardContent>
@@ -414,10 +263,15 @@ export default function TransactionManagement() {
       {/* Transactions Table */}
       <Card className="shadow-card">
         <CardHeader>
-          <CardTitle>Transactions ({pagination.total})</CardTitle>
+          <CardTitle className="flex items-center justify-between">
+            <span>Recent Transactions</span>
+            <Badge variant="secondary" className="ml-2">
+              {pagination.total} total
+            </Badge>
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border">
+          <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -426,79 +280,108 @@ export default function TransactionManagement() {
                   <TableHead>Amount</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Description</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead>Processed</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {transactions.length > 0 ? transactions.map((transaction) => (
                   <TableRow key={transaction.id}>
                     <TableCell>
-                      <div className="flex items-center space-x-3">
-                        <Avatar className="h-8 w-8">
-                          <AvatarImage src={transaction.users?.image} />
-                          <AvatarFallback>
-                            <User className="h-4 w-4" />
-                          </AvatarFallback>
-                        </Avatar>
+                      <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                          <span className="text-xs font-medium text-primary">
+                            {transaction.users?.name?.charAt(0) || 'U'}
+                          </span>
+                        </div>
                         <div>
-                          <div className="font-medium">{transaction.users?.name || 'No Name'}</div>
-                          <div className="text-sm text-muted-foreground">{transaction.users?.email}</div>
+                          <p className="font-medium text-foreground">
+                            {transaction.users?.name || 'Unknown User'}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {transaction.users?.email || 'No email'}
+                          </p>
                         </div>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center space-x-2">
-                        {getTypeIcon(transaction.payment_type)}
-                        <span className="capitalize">{transaction.payment_type}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="font-mono">
-                        {transaction.currency} {transaction.amount?.toLocaleString()}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={getStatusColor(transaction.status)}>
-                        {transaction.status}
+                      <Badge variant="outline" className="capitalize">
+                        {transaction.type || 'payment'}
                       </Badge>
                     </TableCell>
-                    <TableCell className="max-w-xs truncate">
-                      <div className="space-y-1">
-                        <div className="text-sm font-medium">{transaction.provider || 'Manual'}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {transaction.provider_payment_id ? `ID: ${transaction.provider_payment_id.slice(0, 12)}...` : 'No payment ID'}
-                        </div>
+                    <TableCell>
+                      <span className="font-semibold">
+                        {transaction.currency || '$'} {parseFloat(transaction.amount || 0).toLocaleString()}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          transaction.status === "completed" ? "default" : 
+                          transaction.status === "failed" ? "destructive" : 
+                          transaction.status === "pending" ? "secondary" : "outline"
+                        }
+                        className={
+                          transaction.status === "completed" ? "bg-success text-success-foreground" :
+                          transaction.status === "failed" ? "bg-destructive" :
+                          transaction.status === "pending" ? "bg-warning text-warning-foreground" : ""
+                        }
+                      >
+                        {transaction.status === "completed" && <CheckCircle className="h-3 w-3 mr-1" />}
+                        {transaction.status === "failed" && <XCircle className="h-3 w-3 mr-1" />}
+                        {transaction.status === "pending" && <Clock className="h-3 w-3 mr-1" />}
+                        {transaction.status || 'unknown'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm">
+                        {transaction.description || 'No description'}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm">
+                        <p>{new Date(transaction.created_at).toLocaleDateString()}</p>
+                        <p className="text-muted-foreground">
+                          {new Date(transaction.created_at).toLocaleTimeString()}
+                        </p>
                       </div>
                     </TableCell>
-                    <TableCell className="text-sm">
-                      {new Date(transaction.created_at).toLocaleString()}
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {transaction.payment_date ? 
-                        new Date(transaction.payment_date).toLocaleString() : 
-                        'Not processed'
-                      }
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toast.info(`Transaction ID: ${transaction.id}`)}
+                        >
+                          View
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 )) : (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-8">
-                      <p className="text-muted-foreground">No transactions found. Check your database connection or create a new transaction.</p>
+                      <div className="flex flex-col items-center gap-2">
+                        <AlertCircle className="h-8 w-8 text-muted-foreground" />
+                        <p className="text-muted-foreground">No transactions found.</p>
+                        <p className="text-sm text-muted-foreground">
+                          Try adjusting your search filters or check back later.
+                        </p>
+                      </div>
                     </TableCell>
                   </TableRow>
                 )}
               </TableBody>
             </Table>
           </div>
-          
+
           {/* Pagination */}
           {pagination.pages > 1 && (
-            <div className="flex items-center justify-between px-2 py-4">
+            <div className="flex items-center justify-between mt-6">
               <div className="text-sm text-muted-foreground">
-                Showing {((currentPage - 1) * 10) + 1} to {Math.min(currentPage * 10, pagination.total)} of {pagination.total} results
+                Showing page {pagination.page} of {pagination.pages} ({pagination.total} total transactions)
               </div>
-              <div className="flex items-center space-x-2">
+              <div className="flex gap-2">
                 <Button
                   variant="outline"
                   size="sm"
@@ -507,9 +390,6 @@ export default function TransactionManagement() {
                 >
                   Previous
                 </Button>
-                <div className="text-sm">
-                  Page {currentPage} of {pagination.pages}
-                </div>
                 <Button
                   variant="outline"
                   size="sm"
