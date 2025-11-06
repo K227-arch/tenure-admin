@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { verify } from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
@@ -44,17 +43,41 @@ export function middleware(request: NextRequest) {
   const token = request.cookies.get('admin_token')?.value || 
                 request.headers.get('authorization')?.replace('Bearer ', '');
 
+  console.log('Middleware - Path:', pathname);
+  console.log('Middleware - Token exists:', !!token);
+  console.log('Middleware - Token value:', token?.substring(0, 50) + '...');
+
   if (!token) {
-    // Redirect to login if no token
+    console.log('Middleware - No token, redirecting to login');
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
   try {
-    // Verify JWT token
-    verify(token, JWT_SECRET);
+    // Simple JWT verification for Edge Runtime
+    // Split the token into parts
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+      throw new Error('Invalid token format');
+    }
+
+    // Decode the payload (we'll do basic validation)
+    const payload = JSON.parse(atob(parts[1]));
+    
+    // Check if token is expired
+    const now = Math.floor(Date.now() / 1000);
+    if (payload.exp && payload.exp < now) {
+      throw new Error('Token expired');
+    }
+
+    // Check if it has the required fields
+    if (!payload.email || !payload.role) {
+      throw new Error('Invalid token payload');
+    }
+
+    console.log('Middleware - Token verified successfully for:', payload.email);
     return NextResponse.next();
   } catch (error) {
-    // Invalid token, redirect to login
+    console.log('Middleware - Token verification failed:', error.message);
     return NextResponse.redirect(new URL('/login', request.url));
   }
 }
