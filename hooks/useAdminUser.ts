@@ -47,12 +47,15 @@ export function useAdminUser() {
 
   const logout = async () => {
     try {
-      // This would be replaced with actual logout API call
-      // await fetch('/api/auth/logout', { method: 'POST' });
-      console.log('Logout clicked - would redirect to login page');
-      // In a real app: router.push('/login');
+      await fetch('/api/auth/logout', { method: 'POST' });
+      // Clear client-side token
+      document.cookie = 'admin_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      // Redirect to login page
+      window.location.href = '/login';
     } catch (error) {
       console.error('Logout failed:', error);
+      // Force redirect even if API fails
+      window.location.href = '/login';
     }
   };
 

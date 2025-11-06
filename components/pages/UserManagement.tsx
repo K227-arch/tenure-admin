@@ -392,7 +392,7 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
           <DialogHeader>
             <DialogTitle>Edit User</DialogTitle>
             <DialogDescription>
-              Update user information. Make changes and click save when you&apos;re done.
+              Update user status. Only the status field can be modified for security reasons.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -401,8 +401,8 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
               <Input
                 id="edit-name"
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="col-span-3"
+                readOnly
+                className="col-span-3 bg-muted cursor-not-allowed"
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
@@ -411,19 +411,11 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
                 id="edit-email"
                 type="email"
                 value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="col-span-3"
+                readOnly
+                className="col-span-3 bg-muted cursor-not-allowed"
               />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-image" className="text-right">Image URL</Label>
-              <Input
-                id="edit-image"
-                value={formData.image}
-                onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-                className="col-span-3"
-              />
-            </div>
+
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="edit-status" className="text-right">Status</Label>
               <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
@@ -439,27 +431,19 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="edit-email_verified" className="text-right">Email Verified</Label>
-              <Select value={formData.email_verified.toString()} onValueChange={(value) => setFormData({ ...formData, email_verified: value === 'true' })}>
-                <SelectTrigger className="col-span-3">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="true">Verified</SelectItem>
-                  <SelectItem value="false">Unverified</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="col-span-3">
+                <Badge variant={formData.email_verified ? "default" : "secondary"}>
+                  {formData.email_verified ? 'Verified' : 'Unverified'}
+                </Badge>
+              </div>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="edit-two_factor_enabled" className="text-right">2FA Enabled</Label>
-              <Select value={formData.two_factor_enabled.toString()} onValueChange={(value) => setFormData({ ...formData, two_factor_enabled: value === 'true' })}>
-                <SelectTrigger className="col-span-3">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="true">Enabled</SelectItem>
-                  <SelectItem value="false">Disabled</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="col-span-3">
+                <Badge variant={formData.two_factor_enabled ? "default" : "secondary"}>
+                  {formData.two_factor_enabled ? 'Enabled' : 'Disabled'}
+                </Badge>
+              </div>
             </div>
           </div>
           <DialogFooter>
@@ -467,7 +451,7 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
               Cancel
             </Button>
             <Button type="submit" onClick={handleUpdate} disabled={updateMutation.isPending}>
-              {updateMutation.isPending ? 'Updating...' : 'Update User'}
+              {updateMutation.isPending ? 'Updating Status...' : 'Update Status'}
             </Button>
           </DialogFooter>
         </DialogContent>
