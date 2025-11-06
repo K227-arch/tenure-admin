@@ -15,96 +15,108 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { DollarSign, TrendingUp, TrendingDown, Percent } from "lucide-react";
+import { DollarSign, TrendingUp, TrendingDown, Percent, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 async function fetchFinancialData() {
-  const [dashboardRes, stripeRes, transactionsRes] = await Promise.allSettled([
-    fetch('/api/dashboard/stats'),
-    fetch('/api/analytics/stripe'),
-    fetch('/api/transactions?limit=5')
+  const [financialRes, stripeRes] = await Promise.allSettled([
+    fetch('/api/analytics/financial'),
+    fetch('/api/analytics/stripe')
   ]);
 
   return {
-    dashboard: dashboardRes.status === 'fulfilled' ? await dashboardRes.value.json() : null,
+    financial: financialRes.status === 'fulfilled' ? await financialRes.value.json() : null,
     stripe: stripeRes.status === 'fulfilled' ? await stripeRes.value.json() : null,
-    transactions: transactionsRes.status === 'fulfilled' ? await transactionsRes.value.json() : null,
   };
 }
 
 export default function Financial() {
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['financial-data'],
     queryFn: fetchFinancialData,
-    refetchInterval: 60000, // Refetch every minute
+    refetchInterval: 60000, // Refetch every minute for real-time updates
   });
+
+  const handleRefresh = () => {
+    refetch();
+    toast.success("Financial data refreshed!");
+  };
 
   if (isLoading) {
     return (
       <div className="space-y-8">
         <div>
           <h1 className="text-4xl font-bold text-foreground mb-2">Financial Reports</h1>
-          <p className="text-muted-foreground">Loading financial data...</p>
+          <p className="text-muted-foreground">Loading real-time financial data from Supabase...</p>
+        </div>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i} className="shadow-card">
+              <CardHeader className="pb-2">
+                <div className="h-4 bg-muted rounded animate-pulse"></div>
+              </CardHeader>
+              <CardContent>
+                <div className="h-8 bg-muted rounded animate-pulse mb-2"></div>
+                <div className="h-4 bg-muted rounded animate-pulse"></div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </div>
     );
   }
 
-  if (error || !data) {
+  if (error || !data?.financial) {
     return (
       <div className="space-y-8">
         <div>
           <h1 className="text-4xl font-bold text-foreground mb-2">Financial Reports</h1>
-          <p className="text-muted-foreground text-red-500">Error loading financial data. Please check your database connection.</p>
+          <p className="text-muted-foreground text-red-500">Error loading financial data. Please check your Supabase database connection.</p>
         </div>
       </div>
     );
   }
 
-  // Use real data from APIs
-  const monthlyRevenue = data.dashboard?.charts?.revenueData?.map(item => ({
-    month: item.month,
-    revenue: item.revenue,
-    expenses: Math.floor(item.revenue * 0.1) // Estimate 10% expenses
-  })) || [];
+  // Use 100% real-time financial data from Supabase
+  const financialData = data.financial;
+  const monthlyRevenue = financialData?.charts?.monthlyRevenue || [];
+  const paymentBreakdown = financialData?.charts?.paymentBreakdown || [];
+  const expenseBreakdown = financialData?.charts?.expenseBreakdown || [];
 
-  const paymentBreakdown = data.stripe ? [
-    { name: "Active Subscriptions", value: data.stripe.subscriptionStats?.active || 0, color: "hsl(var(--success))" },
-    { name: "Past Due", value: data.stripe.subscriptionStats?.pastDue || 0, color: "hsl(var(--warning))" },
-    { name: "Canceled", value: data.stripe.subscriptionStats?.canceled || 0, color: "hsl(var(--destructive))" },
-  ] : [];
-
-  const totalRevenue = monthlyRevenue.reduce((sum, item) => sum + item.revenue, 0);
-  const totalExpenses = monthlyRevenue.reduce((sum, item) => sum + item.expenses, 0);
-  const netIncome = totalRevenue - totalExpenses;
-  const collectionRate = data.stripe ? 
-    ((data.stripe.subscriptionStats?.active || 0) / 
-     ((data.stripe.subscriptionStats?.active || 0) + (data.stripe.subscriptionStats?.canceled || 0)) * 100) : 0;
+  const totalRevenue = financialData?.summary?.totalRevenue || 0;
+  const totalExpenses = financialData?.summary?.totalExpenses || 0;
+  const netIncome = financialData?.summary?.netIncome || 0;
+  const collectionRate = financialData?.summary?.collectionRate || 0;
+  const revenueGrowth = financialData?.summary?.revenueGrowth || 0;
+  const expenseRatio = financialData?.summary?.expenseRatio || 0;
+  
   const stats = [
     {
       title: "Total Revenue (YTD)",
       value: `$${totalRevenue.toLocaleString()}`,
-      change: data.dashboard?.stats?.revenueChange || "No data",
-      trend: "up",
+      change: `${revenueGrowth > 0 ? '+' : ''}${revenueGrowth.toFixed(1)}% vs last month`,
+      trend: revenueGrowth >= 0 ? "up" : "down",
       icon: DollarSign,
     },
     {
       title: "Net Income",
       value: `$${netIncome.toLocaleString()}`,
-      change: `$${(netIncome - (totalRevenue * 0.9)).toLocaleString()} vs last period`,
+      change: `${((netIncome / (totalRevenue || 1)) * 100).toFixed(1)}% profit margin`,
       trend: netIncome > 0 ? "up" : "down",
       icon: TrendingUp,
     },
     {
       title: "Operating Expenses",
       value: `$${totalExpenses.toLocaleString()}`,
-      change: `${((totalExpenses / totalRevenue) * 100).toFixed(1)}% of revenue`,
-      trend: "down",
+      change: `${expenseRatio.toFixed(1)}% of revenue`,
+      trend: expenseRatio < 20 ? "up" : "down",
       icon: TrendingDown,
     },
     {
       title: "Collection Rate",
       value: `${collectionRate.toFixed(1)}%`,
-      change: data.stripe ? `${data.stripe.subscriptionStats?.active || 0} active subs` : "No data",
+      change: `${financialData?.subscriptionMetrics?.active || 0} active subscriptions`,
       trend: collectionRate > 90 ? "up" : "down",
       icon: Percent,
     },
@@ -113,13 +125,19 @@ export default function Financial() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div>
-        <h1 className="text-4xl font-bold text-foreground mb-2">
-          Financial Reports
-        </h1>
-        <p className="text-muted-foreground">
-          Comprehensive financial overview and analytics.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-4xl font-bold text-foreground mb-2">
+            Financial Reports
+          </h1>
+          <p className="text-muted-foreground">
+            Real-time financial overview and analytics from Supabase database.
+          </p>
+        </div>
+        <Button onClick={handleRefresh} variant="outline">
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Refresh Data
+        </Button>
       </div>
 
       {/* Stats Grid */}
@@ -152,21 +170,17 @@ export default function Financial() {
                 >
                   {stat.change}
                 </span>
-                <span className="text-sm text-muted-foreground ml-2">
-                  vs last year
-                </span>
               </div>
             </CardContent>
           </Card>
         ))}
-      </div>
-
-      {/* Charts */}
+      </div> 
+     {/* Charts */}
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Revenue vs Expenses */}
         <Card className="lg:col-span-2 shadow-card">
           <CardHeader>
-            <CardTitle>Revenue vs Expenses</CardTitle>
+            <CardTitle>Revenue vs Expenses (Real-time from Supabase)</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -197,10 +211,10 @@ export default function Financial() {
           </CardContent>
         </Card>
 
-        {/* Payment Status Breakdown */}
+        {/* Subscription Status Breakdown */}
         <Card className="shadow-card">
           <CardHeader>
-            <CardTitle>Payment Status</CardTitle>
+            <CardTitle>Subscription Status (Live Data)</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -228,16 +242,16 @@ export default function Financial() {
         </Card>
       </div>
 
-      {/* Recent Transactions and Monthly Breakdown */}
+      {/* Recent Transactions and Expense Breakdown */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Recent Transactions */}
         <Card className="shadow-card">
           <CardHeader>
-            <CardTitle>Recent Transactions</CardTitle>
+            <CardTitle>Recent Transactions (Live from Database)</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {data.transactions?.transactions?.length > 0 ? data.transactions.transactions.map((transaction, index) => (
+              {financialData?.recentTransactions?.length > 0 ? financialData.recentTransactions.slice(0, 5).map((transaction, index) => (
                 <div
                   key={index}
                   className="flex items-center justify-between border-b border-border pb-4 last:border-0"
@@ -247,7 +261,10 @@ export default function Financial() {
                       {transaction.users?.name || 'Unknown User'}
                     </p>
                     <p className="text-sm text-muted-foreground capitalize">
-                      {transaction.payment_type} - {transaction.provider || 'Manual'}
+                      {transaction.type || 'payment'} - {transaction.description || 'Transaction'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {transaction.source === 'transactions' ? 'Transactions Table' : 'User Payments Table'}
                     </p>
                   </div>
                   <div className="text-right">
@@ -255,7 +272,7 @@ export default function Financial() {
                       transaction.status === 'completed' ? 'text-success' : 
                       transaction.status === 'failed' ? 'text-destructive' : 'text-warning'
                     }`}>
-                      {transaction.currency} {transaction.amount?.toLocaleString()}
+                      {transaction.currency || '$'} {parseFloat(transaction.amount || 0).toLocaleString()}
                     </p>
                     <p className="text-xs text-muted-foreground capitalize">
                       {transaction.status}
@@ -264,58 +281,129 @@ export default function Financial() {
                 </div>
               )) : (
                 <div className="text-center py-8">
-                  <p className="text-muted-foreground">No recent transactions found.</p>
+                  <p className="text-muted-foreground">No recent transactions found in database.</p>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Data is pulled from Supabase transactions and user_payments tables.
+                  </p>
                 </div>
               )}
             </div>
           </CardContent>
         </Card>
 
-        {/* Monthly Breakdown */}
+        {/* Expense Breakdown */}
         <Card className="shadow-card">
           <CardHeader>
-            <CardTitle>Monthly Breakdown</CardTitle>
+            <CardTitle>Expense Breakdown (Calculated)</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {monthlyRevenue.length > 0 ? monthlyRevenue.slice(-3).map((item, index) => {
-                const net = item.revenue - item.expenses;
-                const margin = item.revenue > 0 ? ((net / item.revenue) * 100).toFixed(1) : 0;
-                return (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between border-b border-border pb-4 last:border-0"
-                  >
-                    <div className="font-medium text-foreground">{item.month}</div>
-                    <div className="grid grid-cols-3 gap-4 text-right">
-                      <div>
-                        <p className="text-xs text-muted-foreground">Revenue</p>
-                        <p className="font-semibold text-foreground text-sm">
-                          ${item.revenue.toLocaleString()}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Net</p>
-                        <p className="font-semibold text-success text-sm">
-                          ${net.toLocaleString()}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Margin</p>
-                        <p className="font-semibold text-foreground text-sm">{margin}%</p>
-                      </div>
-                    </div>
-                  </div>
-                );
-              }) : (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground">No financial data available.</p>
-                </div>
-              )}
-            </div>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={expenseBreakdown}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, percent }) =>
+                    `${name}: ${(percent * 100).toFixed(0)}%`
+                  }
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {expenseBreakdown.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
       </div>
+
+      {/* Monthly Performance Summary */}
+      <Card className="shadow-card">
+        <CardHeader>
+          <CardTitle>Monthly Performance Summary (Real-time Data)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {monthlyRevenue.length > 0 ? monthlyRevenue.slice(-3).map((item, index) => {
+              const net = item.revenue - item.expenses;
+              const margin = item.revenue > 0 ? ((net / item.revenue) * 100).toFixed(1) : 0;
+              return (
+                <div
+                  key={index}
+                  className="flex items-center justify-between border-b border-border pb-4 last:border-0"
+                >
+                  <div className="font-medium text-foreground">{item.month}</div>
+                  <div className="grid grid-cols-4 gap-4 text-right">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Revenue</p>
+                      <p className="font-semibold text-foreground text-sm">
+                        ${item.revenue.toLocaleString()}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Expenses</p>
+                      <p className="font-semibold text-destructive text-sm">
+                        ${item.expenses.toLocaleString()}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Net</p>
+                      <p className="font-semibold text-success text-sm">
+                        ${net.toLocaleString()}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Margin</p>
+                      <p className="font-semibold text-foreground text-sm">{margin}%</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            }) : (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">No financial data available in database.</p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Add transactions to your Supabase database to see monthly performance.
+                </p>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Data Source Information */}
+      <Card className="shadow-card border-primary/20">
+        <CardHeader>
+          <CardTitle className="text-primary">Real-time Data Sources</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <h4 className="font-semibold text-foreground mb-2">Supabase Tables:</h4>
+              <ul className="text-sm text-muted-foreground space-y-1">
+                <li>• <strong>transactions</strong> - All transaction records</li>
+                <li>• <strong>user_payments</strong> - User payment history</li>
+                <li>• <strong>subscriptions</strong> - Subscription data</li>
+                <li>• <strong>users</strong> - User information</li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-semibold text-foreground mb-2">Update Frequency:</h4>
+              <ul className="text-sm text-muted-foreground space-y-1">
+                <li>• <strong>Auto-refresh:</strong> Every 60 seconds</li>
+                <li>• <strong>Manual refresh:</strong> Click refresh button</li>
+                <li>• <strong>Data processing:</strong> Real-time calculations</li>
+                <li>• <strong>No dummy data:</strong> 100% live database</li>
+              </ul>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

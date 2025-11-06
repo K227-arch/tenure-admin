@@ -1,7 +1,9 @@
 'use client'
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, DollarSign, AlertCircle, Clock } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Users, DollarSign, AlertCircle, Clock, RefreshCw } from "lucide-react";
+import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { supabase } from "@/lib/supabase/client";
@@ -56,11 +58,16 @@ export default function Dashboard() {
       supabase.removeChannel(channel);
     };
   }, [queryClient]);
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: fetchDashboardStats,
     refetchInterval: 30000, // Refetch every 30 seconds for real-time data
   });
+
+  const handleRefresh = () => {
+    refetch();
+    toast.success("Dashboard data refreshed!");
+  };
 
   // Activity data not available with current schema
   const activityData = null;
@@ -72,16 +79,16 @@ export default function Dashboard() {
 
   const stats = [
     {
-      title: "Total Revenue Collected",
+      title: "Total Revenue Collected (Real-time)",
       value: data?.stats?.totalRevenue || "$0",
-      change: data?.stats?.revenueChange || "No data",
+      change: data?.stats?.revenueChange || "Loading from Supabase...",
       icon: DollarSign,
       gradient: "bg-gradient-success",
     },
     {
-      title: "Active Members",
+      title: "Active Members (Live)",
       value: data?.stats?.activeMembers?.toString() || "0",
-      change: data?.stats?.memberChange || "No data",
+      change: data?.stats?.memberChange || "Loading from database...",
       icon: Users,
       gradient: "bg-gradient-primary",
     },
@@ -93,9 +100,9 @@ export default function Dashboard() {
       gradient: "bg-gradient-success",
     },
     {
-      title: "Total Transactions",
+      title: "Total Transactions (Live)",
       value: data?.stats?.totalTransactions?.toString() || "0",
-      change: data?.stats?.transactionChange || "No data",
+      change: data?.stats?.transactionChange || "Loading from database...",
       icon: Clock,
       gradient: "bg-warning",
     },
@@ -128,11 +135,17 @@ export default function Dashboard() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div>
-        <h1 className="text-4xl font-bold text-foreground mb-2">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Welcome back! Here&apos;s an overview of your membership system.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-4xl font-bold text-foreground mb-2">Dashboard</h1>
+          <p className="text-muted-foreground">
+            Welcome back! Here&apos;s an overview of your membership system with real-time Supabase data.
+          </p>
+        </div>
+        <Button onClick={handleRefresh} variant="outline">
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Refresh Data
+        </Button>
       </div>
 
       {/* Stats Grid */}

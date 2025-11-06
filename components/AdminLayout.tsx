@@ -15,7 +15,6 @@ import {
   ChevronRight,
   CreditCard,
   Receipt,
-  User,
   LogOut,
   Bell,
   ChevronDown,
@@ -170,24 +169,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                     <p className="text-xs leading-none text-muted-foreground">
                       {adminUser.email}
                     </p>
-                    <Badge variant="secondary" className="w-fit text-xs">
-                      {adminUser.role}
-                    </Badge>
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem>
-                  <User className="mr-2 h-4 w-4" />
-                  <span>Profile</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem>
                   <Settings className="mr-2 h-4 w-4" />
                   <span>Settings</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Bell className="mr-2 h-4 w-4" />
-                  <span>Notifications</span>
-                  <Badge className="ml-auto">3</Badge>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem className="text-red-600" onClick={logout}>
