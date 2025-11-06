@@ -95,6 +95,7 @@ export default function UserManagement() {
   
 // Dialog states
 const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isUserDetailsOpen, setIsUserDetailsOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   
   // Form states
@@ -166,6 +167,11 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   const handleBlock = (userId: string) => {
     updateMutation.mutate({ id: userId, data: { status: 'blocked' } });
+  };
+
+  const handleViewUser = (user: any) => {
+    setSelectedUser(user);
+    setIsUserDetailsOpen(true);
   };
 
   const handleEdit = (user: any) => {
@@ -288,7 +294,7 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
                     (new Date().getTime() - new Date(user.updated_at).getTime()) < 24 * 60 * 60 * 1000; // 24 hours
                   
                   return (
-                  <TableRow key={user.id}>
+                  <TableRow key={user.id} className="cursor-pointer hover:bg-muted/50" onClick={() => handleViewUser(user)}>
                     <TableCell>
                       <div className="flex items-center space-x-3">
                         <div className="relative">
@@ -462,6 +468,156 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
             </Button>
             <Button type="submit" onClick={handleUpdate} disabled={updateMutation.isPending}>
               {updateMutation.isPending ? 'Updating...' : 'Update User'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* User Details Modal */}
+      <Dialog open={isUserDetailsOpen} onOpenChange={setIsUserDetailsOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3">
+              <Avatar className="h-10 w-10">
+                <AvatarImage src={selectedUser?.image} alt={selectedUser?.name} />
+                <AvatarFallback>
+                  <User className="h-5 w-5" />
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <div className="font-semibold">{selectedUser?.name || 'Unknown User'}</div>
+                <div className="text-sm text-muted-foreground">{selectedUser?.email}</div>
+              </div>
+            </DialogTitle>
+            <DialogDescription>
+              Complete user profile and account information
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedUser && (
+            <div className="grid gap-6 py-4">
+              {/* Basic Information */}
+              <div className="space-y-4">
+                <h4 className="font-semibold text-foreground border-b pb-2">Basic Information</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Full Name</Label>
+                    <p className="text-sm font-medium">{selectedUser.name || 'Not provided'}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">User ID</Label>
+                    <p className="text-sm font-mono">{selectedUser.id}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Email Address</Label>
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-4 w-4 text-muted-foreground" />
+                      <p className="text-sm">{selectedUser.email}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Phone Number</Label>
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-4 w-4 text-muted-foreground" />
+                      <p className="text-sm">{selectedUser.phone || 'Not provided'}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Account Status */}
+              <div className="space-y-4">
+                <h4 className="font-semibold text-foreground border-b pb-2">Account Status</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Status</Label>
+                    <Badge variant={
+                      selectedUser.status === "active" ? "default" : 
+                      selectedUser.status === "suspended" ? "destructive" : "secondary"
+                    }>
+                      {selectedUser.status || 'Unknown'}
+                    </Badge>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Email Verified</Label>
+                    <Badge variant={selectedUser.email_verified ? "default" : "secondary"}>
+                      {selectedUser.email_verified ? 'Verified' : 'Unverified'}
+                    </Badge>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Two-Factor Auth</Label>
+                    <Badge variant={selectedUser.two_factor_enabled ? "default" : "secondary"}>
+                      {selectedUser.two_factor_enabled ? 'Enabled' : 'Disabled'}
+                    </Badge>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Member Type</Label>
+                    <p className="text-sm">{selectedUser.membership_type || 'Standard'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Location & Personal Info */}
+              <div className="space-y-4">
+                <h4 className="font-semibold text-foreground border-b pb-2">Location & Personal Information</h4>
+                <div className="grid grid-cols-1 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Address</Label>
+                    <p className="text-sm">{selectedUser.address || 'Not provided'}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">Role</Label>
+                      <p className="text-sm">{selectedUser.role || 'User'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">Auth User ID</Label>
+                      <p className="text-sm font-mono text-xs">{selectedUser.auth_user_id || 'Not linked'}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Timestamps */}
+              <div className="space-y-4">
+                <h4 className="font-semibold text-foreground border-b pb-2">Account Timeline</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Joined Date</Label>
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <p className="text-sm">{selectedUser.created_at ? new Date(selectedUser.created_at).toLocaleDateString() : 'Unknown'}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Last Updated</Label>
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <p className="text-sm">{selectedUser.updated_at ? new Date(selectedUser.updated_at).toLocaleDateString() : 'Unknown'}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Last Active</Label>
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <p className="text-sm">{selectedUser.last_active ? new Date(selectedUser.last_active).toLocaleDateString() : 'Never'}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsUserDetailsOpen(false)}>
+              Close
+            </Button>
+            <Button onClick={() => {
+              setIsUserDetailsOpen(false);
+              handleEdit(selectedUser);
+            }}>
+              <Eye className="h-4 w-4 mr-2" />
+              Edit User
             </Button>
           </DialogFooter>
         </DialogContent>
