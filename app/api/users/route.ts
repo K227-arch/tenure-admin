@@ -13,6 +13,7 @@ export async function GET(request: NextRequest) {
     const offset = (page - 1) * limit;
 
     // Build query using actual columns present in public.users
+    // Note: Only selecting columns that exist in the database
     let query = supabaseAdmin
       .from('users')
       .select(`
@@ -22,6 +23,8 @@ export async function GET(request: NextRequest) {
         name,
         image,
         status,
+        email_verified,
+        two_factor_enabled,
         created_at,
         updated_at
       `, { count: 'exact' });
@@ -51,14 +54,17 @@ export async function GET(request: NextRequest) {
       id: u.id,
       email: u.email,
       name: u.name,
-      role: null,
+      role: u.role || null,
       status: u.status,
       membership_type: null,
       joined_at: u.created_at,
       last_active: u.updated_at,
       avatar: u.image,
-      phone: null,
-      address: null,
+      image: u.image,
+      phone: u.phone || null,
+      address: u.address || null,
+      email_verified: u.email_verified || false,
+      two_factor_enabled: u.two_factor_enabled || false,
       created_at: u.created_at,
       updated_at: u.updated_at,
     }));

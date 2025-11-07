@@ -378,14 +378,16 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button variant="secondary" size="sm" onClick={() => handleSuspend(user.id)}>
-                          Suspend
-                        </Button>
-                        <Button variant="destructive" size="sm" onClick={() => handleBlock(user.id)}>
-                          Block
-                        </Button>
-                      </div>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEdit(user);
+                        }}
+                      >
+                        Edit Status
+                      </Button>
                     </TableCell>
                   </TableRow>
                 )}) : (
@@ -440,7 +442,9 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
                 <SelectContent>
                   <SelectItem value="Active">Active</SelectItem>
                   <SelectItem value="Pending">Pending</SelectItem>
+                  <SelectItem value="Inactive">Inactive</SelectItem>
                   <SelectItem value="Suspended">Suspended</SelectItem>
+                  <SelectItem value="Disabled">Disabled</SelectItem>
                 </SelectContent>
               </Select>
             </div>
