@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +21,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Search, Filter } from "lucide-react";
+import { supabase } from "@/lib/supabase/client";
 
 async function fetchAuditLogs(page = 1, search = '', action = '') {
   const params = new URLSearchParams({
@@ -40,12 +41,27 @@ export default function AuditLog() {
   const [searchTerm, setSearchTerm] = useState("");
   const [actionFilter, setActionFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
+  const queryClient = useQueryClient();
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['audit-logs', currentPage, searchTerm, actionFilter],
     queryFn: () => fetchAuditLogs(currentPage, searchTerm, actionFilter),
     refetchInterval: 30000, // Real-time updates every 30 seconds
   });
+
+  // Realtime: refresh audit logs when user_audit_logs changes
+  useEffect(() => {
+    const channel = supabase
+      .channel('realtime-audit-logs')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_audit_logs' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['audit-logs'] });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   const handleSearch = () => {
     setCurrentPage(1);
