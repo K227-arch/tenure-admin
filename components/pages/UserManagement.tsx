@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -46,6 +46,7 @@ import {
 import { Search, Filter, Eye, Mail, Phone, User, Clock } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabase/client";
 
 async function fetchUsers(page = 1, search = '', status = '', role = '') {
   const params = new URLSearchParams({
@@ -115,6 +116,20 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     queryFn: () => fetchUsers(currentPage, searchTerm, statusFilter, roleFilter),
     refetchInterval: 30000, // Refetch every 30 seconds for real-time updates
   });
+
+  // Realtime: refresh when users table changes
+  useEffect(() => {
+    const channel = supabase
+      .channel('realtime-users')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['users'] });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   // Mutations
 
