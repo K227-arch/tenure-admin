@@ -18,6 +18,24 @@ export async function GET(request: Request) {
       .order('updated_at', { ascending: false })
       .limit(20);
 
+  // Get recent user audit logs
+  const { data: userAuditLogs } = await supabaseAdmin
+    .from('user_audit_logs')
+    .select(`
+      id,
+      user_id,
+      entity_type,
+      entity_id,
+      action,
+      success,
+      error_message,
+      metadata,
+      created_at,
+      users(name, email)
+    `)
+    .order('created_at', { ascending: false })
+    .limit(100);
+
     // Get recent transactions
     const { data: recentTransactions } = await supabaseAdmin
       .from('transactions')
@@ -92,6 +110,19 @@ export async function GET(request: Request) {
         type: 'transaction'
       });
     });
+
+  // User audit log activities
+  userAuditLogs?.forEach((log) => {
+    auditLogs.push({
+      id: `user-audit-${log.id}`,
+      timestamp: log.created_at,
+      user: log.users?.name || log.users?.email || 'Unknown',
+      action: log.action,
+      details: `${log.entity_type || 'entity'} ${log.entity_id || ''}`.trim(),
+      status: log.success === false ? 'warning' : 'success',
+      type: 'user_audit'
+    });
+  });
 
     // Subscription activities
     recentSubscriptions?.forEach(subscription => {

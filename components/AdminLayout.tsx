@@ -18,6 +18,8 @@ import {
   LogOut,
   Bell,
   ChevronDown,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -32,6 +34,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useAdminUser } from "@/hooks/useAdminUser";
+import { useTheme } from "@/hooks/useTheme";
 
 const navigationItems = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -53,6 +56,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
   const { adminUser, logout } = useAdminUser();
+  const { theme, toggleTheme, isDark } = useTheme();
 
   return (
     <div className="flex min-h-screen w-full bg-background">
@@ -67,9 +71,10 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           {/* Logo */}
           <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-4">
             {!collapsed && (
-              <h1 className="text-xl font-bold text-sidebar-foreground">
-                Admin Panel
-              </h1>
+              <div className="text-sidebar-foreground">
+                <h1 className="text-lg font-bold text-blue-600">Home Solutions</h1>
+                <p className="text-xs text-sidebar-foreground/70">Admin Panel</p>
+              </div>
             )}
             <button
               onClick={() => setCollapsed(!collapsed)}
@@ -119,7 +124,10 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         {/* Top Navbar */}
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-background px-6">
           <div className="flex items-center gap-4">
-            <h2 className="text-lg font-semibold text-foreground">Admin Dashboard</h2>
+            <div>
+              <h2 className="text-lg font-semibold text-blue-600">Home Solutions</h2>
+              <p className="text-xs text-muted-foreground">Admin Dashboard</p>
+            </div>
             <div className="hidden md:block text-sm text-muted-foreground">
               {new Date().toLocaleDateString('en-US', { 
                 weekday: 'long', 
@@ -132,6 +140,21 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           
           {/* Profile Section */}
           <div className="flex items-center gap-4">
+            {/* Theme Toggle */}
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={toggleTheme}
+              className="relative"
+              title={`Switch to ${isDark ? 'light' : 'dark'} theme`}
+            >
+              {isDark ? (
+                <Sun className="h-4 w-4" />
+              ) : (
+                <Moon className="h-4 w-4" />
+              )}
+            </Button>
+
             {/* Notifications */}
             <Button variant="ghost" size="sm" className="relative">
               <Bell className="h-4 w-4" />

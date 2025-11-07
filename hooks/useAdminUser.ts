@@ -20,16 +20,39 @@ export function useAdminUser() {
     isOnline: true,
   });
 
-  // In a real app, you would fetch this from your auth system
+  // Get user data from JWT token
   useEffect(() => {
-    // Simulate fetching admin user data
-    const fetchAdminUser = async () => {
+    const getUserFromToken = () => {
       try {
-        // This would be replaced with actual API call to get current admin user
-        // const response = await fetch('/api/auth/me');
-        // const userData = await response.json();
+        // Get token from cookie
+        const cookies = document.cookie.split(';');
+        const tokenCookie = cookies.find(cookie => cookie.trim().startsWith('admin_token='));
         
-        // For now, we'll use mock data
+        if (!tokenCookie) {
+          return;
+        }
+
+        const token = tokenCookie.split('=')[1];
+        
+        // Decode JWT payload
+        const parts = token.split('.');
+        if (parts.length !== 3) {
+          return;
+        }
+
+        const payload = JSON.parse(atob(parts[1]));
+        
+        // Update user data with real token data
+        setAdminUser({
+          id: 'admin-1',
+          name: payload.name || 'Admin User',
+          email: payload.email || 'admin@tenure.com',
+          role: payload.role === 'admin' ? 'Super Admin' : payload.role,
+          isOnline: true,
+        });
+      } catch (error) {
+        console.error('Failed to decode token:', error);
+        // Fallback to default data
         setAdminUser({
           id: 'admin-1',
           name: 'Admin User',
@@ -37,12 +60,10 @@ export function useAdminUser() {
           role: 'Super Admin',
           isOnline: true,
         });
-      } catch (error) {
-        console.error('Failed to fetch admin user:', error);
       }
     };
 
-    fetchAdminUser();
+    getUserFromToken();
   }, []);
 
   const logout = async () => {

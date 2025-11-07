@@ -7,13 +7,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Eye, EyeOff, Lock, Mail, Shield } from "lucide-react";
 import { toast } from "sonner";
 
 export default function Login() {
-  const [email, setEmail] = useState("dantetrevordrex@gmail.com");
-  const [password, setPassword] = useState("The$1000");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
@@ -35,10 +37,21 @@ export default function Login() {
       const data = await response.json();
 
       if (response.ok) {
-        // Store auth token in cookie
-        document.cookie = `admin_token=${data.token}; path=/; max-age=86400; secure; samesite=strict`;
-        toast.success("Login successful! Welcome to the admin dashboard.");
-        router.push('/');
+        // Store auth token in cookie with extended expiry if remember me is checked
+        const maxAge = rememberMe ? 86400 * 30 : 86400; // 30 days if remember me, otherwise 1 day
+        document.cookie = `admin_token=${data.token}; path=/; max-age=${maxAge}; samesite=lax`;
+        
+        // Debug: Log the token and cookie
+        console.log('Token received:', data.token);
+        console.log('Cookie set:', document.cookie);
+        
+        // Show success message
+        toast.success("Login successful! Redirecting to dashboard...");
+        
+        // Add a small delay to ensure cookie is properly set
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 500);
       } else {
         setError(data.error || 'Login failed');
         toast.error(data.error || 'Login failed');
@@ -51,33 +64,27 @@ export default function Login() {
     }
   };
 
-  const handleDemoLogin = () => {
-    setEmail("dantetrevordrex@gmail.com");
-    setPassword("The$1000");
-    toast.info("Demo credentials loaded");
-  };
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-4">
-      <div className="w-full max-w-md space-y-8">
-        {/* Header */}
-        <div className="text-center">
-          <div className="mx-auto h-12 w-12 rounded-full bg-primary flex items-center justify-center mb-4">
-            <Shield className="h-6 w-6 text-primary-foreground" />
-          </div>
-          <h1 className="text-3xl font-bold text-foreground">Admin Dashboard</h1>
-          <p className="text-muted-foreground mt-2">
-            Sign in to access the admin panel
-          </p>
-        </div>
-
+      <div className="w-full max-w-md">
         {/* Login Form */}
-        <Card className="shadow-lg">
-          <CardHeader>
-            <CardTitle className="text-center">Sign In</CardTitle>
+        <Card className="shadow-lg min-h-[600px]">
+          <CardHeader className="text-center space-y-6 py-8">
+            <div className="mx-auto h-16 w-16 rounded-full bg-primary flex items-center justify-center">
+              <Shield className="h-8 w-8 text-primary-foreground" />
+            </div>
+            <div className="space-y-4">
+              <h1 className="text-4xl font-bold text-blue-600">Home Solutions</h1>
+              <p className="text-muted-foreground text-lg">
+                Sign in to access the admin panel
+              </p>
+            </div>
+
           </CardHeader>
-          <CardContent>
-            <form onSubmit={handleLogin} className="space-y-6">
+          <CardContent className="px-8 pb-8">
+            <form onSubmit={handleLogin} className="space-y-8">
               {error && (
                 <Alert variant="destructive">
                   <AlertDescription>{error}</AlertDescription>
@@ -123,6 +130,20 @@ export default function Login() {
                 </div>
               </div>
 
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="remember-me" 
+                  checked={rememberMe}
+                  onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                />
+                <Label 
+                  htmlFor="remember-me" 
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  Remember me
+                </Label>
+              </div>
+
               <Button
                 type="submit"
                 className="w-full"
@@ -131,30 +152,8 @@ export default function Login() {
                 {isLoading ? "Signing in..." : "Sign In"}
               </Button>
 
-              <div className="text-center">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleDemoLogin}
-                  className="text-sm"
-                >
-                  Load Demo Credentials
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
 
-        {/* Demo Info */}
-        <Card className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
-          <CardContent className="pt-6">
-            <div className="text-center space-y-2">
-              <h3 className="font-semibold text-blue-900 dark:text-blue-100">Demo Credentials</h3>
-              <div className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
-                <p><strong>Email:</strong> dantetrevordrex@gmail.com</p>
-                <p><strong>Password:</strong> The$1000</p>
-              </div>
-            </div>
+            </form>
           </CardContent>
         </Card>
       </div>
