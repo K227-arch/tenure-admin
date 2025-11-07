@@ -30,8 +30,7 @@ export async function GET(request: Request) {
       success,
       error_message,
       metadata,
-      created_at,
-      users(name, email)
+      created_at
     `)
     .order('created_at', { ascending: false })
     .limit(100);
@@ -116,7 +115,7 @@ export async function GET(request: Request) {
     auditLogs.push({
       id: `user-audit-${log.id}`,
       timestamp: log.created_at,
-      user: log.users?.name || log.users?.email || 'Unknown',
+      user: log.user_id || 'Unknown',
       action: log.action,
       details: `${log.entity_type || 'entity'} ${log.entity_id || ''}`.trim(),
       status: log.success === false ? 'warning' : 'success',
