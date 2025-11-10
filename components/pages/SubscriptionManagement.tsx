@@ -43,7 +43,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Search, Filter, Plus, Edit, Trash2, CreditCard, Calendar, User, RefreshCw, TrendingUp, TrendingDown, DollarSign } from "lucide-react";
+import { Search, Filter, Edit, Trash2, CreditCard, Calendar, User, RefreshCw, TrendingUp, TrendingDown, DollarSign } from "lucide-react";
 import { toast } from "sonner";
 import {
   LineChart,
@@ -76,18 +76,6 @@ async function fetchSubscriptions(page = 1, search = '', status = '') {
   return response.json();
 }
 
-async function createSubscription(subscriptionData: any) {
-  const response = await fetch('/api/subscriptions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(subscriptionData),
-  });
-  if (!response.ok) {
-    throw new Error('Failed to create subscription');
-  }
-  return response.json();
-}
-
 async function updateSubscription(id: string, subscriptionData: any) {
   const response = await fetch(`/api/subscriptions/${id}`, {
     method: 'PUT',
@@ -116,7 +104,6 @@ export default function SubscriptionManagement() {
   const [currentPage, setCurrentPage] = useState(1);
   
   // Dialog states
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedSubscription, setSelectedSubscription] = useState<any>(null);
   
@@ -140,19 +127,6 @@ export default function SubscriptionManagement() {
   });
 
   // Mutations
-  const createMutation = useMutation({
-    mutationFn: createSubscription,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
-      setIsCreateDialogOpen(false);
-      resetForm();
-      toast.success('Subscription created successfully!');
-    },
-    onError: (error) => {
-      toast.error('Failed to create subscription: ' + error.message);
-    },
-  });
-
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: any }) => updateSubscription(id, data),
     onSuccess: () => {
@@ -193,10 +167,6 @@ export default function SubscriptionManagement() {
       current_period_end: '',
       plan_id: ''
     });
-  };
-
-  const handleCreate = () => {
-    createMutation.mutate(formData);
   };
 
   const handleEdit = (subscription: any) => {
@@ -353,112 +323,10 @@ export default function SubscriptionManagement() {
             Manage all user subscriptions and billing cycles.
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={() => refetch()} variant="outline">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
-          </Button>
-          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={() => resetForm()}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Subscription
-              </Button>
-            </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Create New Subscription</DialogTitle>
-              <DialogDescription>
-                Add a new subscription to the system.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="user_id" className="text-right">User ID</Label>
-                <Input
-                  id="user_id"
-                  value={formData.user_id}
-                  onChange={(e) => setFormData({ ...formData, user_id: e.target.value })}
-                  className="col-span-3"
-                  placeholder="User UUID"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="stripe_subscription_id" className="text-right">Provider ID</Label>
-                <Input
-                  id="stripe_subscription_id"
-                  value={formData.stripe_subscription_id}
-                  onChange={(e) => setFormData({ ...formData, stripe_subscription_id: e.target.value })}
-                  className="col-span-3"
-                  placeholder="sub_1234567890"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="provider" className="text-right">Provider</Label>
-                <Select value={formData.provider || 'stripe'} onValueChange={(value) => setFormData({ ...formData, provider: value })}>
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="stripe">Stripe</SelectItem>
-                    <SelectItem value="paypal">PayPal</SelectItem>
-                    <SelectItem value="manual">Manual</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="status" className="text-right">Status</Label>
-                <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="canceled">Canceled</SelectItem>
-                    <SelectItem value="past_due">Past Due</SelectItem>
-                    <SelectItem value="trialing">Trialing</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="plan_id" className="text-right">Plan ID</Label>
-                <Input
-                  id="plan_id"
-                  value={formData.plan_id}
-                  onChange={(e) => setFormData({ ...formData, plan_id: e.target.value })}
-                  className="col-span-3"
-                  placeholder="basic, premium, enterprise"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="current_period_start" className="text-right">Period Start</Label>
-                <Input
-                  id="current_period_start"
-                  type="date"
-                  value={formData.current_period_start}
-                  onChange={(e) => setFormData({ ...formData, current_period_start: e.target.value })}
-                  className="col-span-3"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="current_period_end" className="text-right">Period End</Label>
-                <Input
-                  id="current_period_end"
-                  type="date"
-                  value={formData.current_period_end}
-                  onChange={(e) => setFormData({ ...formData, current_period_end: e.target.value })}
-                  className="col-span-3"
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button type="submit" onClick={handleCreate} disabled={createMutation.isPending}>
-                {createMutation.isPending ? 'Creating...' : 'Create Subscription'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-        </div>
+        <Button onClick={() => refetch()} variant="outline">
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Refresh
+        </Button>
       </div>
 
       {/* Stats */}
