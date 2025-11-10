@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Trophy, CheckCircle, XCircle, AlertCircle, Play } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabase/client";
 
 async function fetchPayoutData() {
   const [payoutsRes, queueRes] = await Promise.allSettled([
@@ -33,12 +34,32 @@ async function fetchPayoutData() {
 
 export default function Payouts() {
   const [isProcessing, setIsProcessing] = useState(false);
+  const queryClient = useQueryClient();
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['payout-data'],
     queryFn: fetchPayoutData,
     refetchInterval: 60000, // Refetch every minute
   });
+
+  // Real-time subscription for membership queue changes
+  useEffect(() => {
+    const channel = supabase
+      .channel('payout-membership-queue')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'membership_queue' },
+        (payload) => {
+          console.log('Membership queue change received:', payload);
+          // Invalidate and refetch the payout data
+          queryClient.invalidateQueries({ queryKey: ['payout-data'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   const handleTriggerPayout = () => {
     setIsProcessing(true);
@@ -138,7 +159,7 @@ export default function Payouts() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-foreground">3</div>
+            <div className="text-3xl font-bold text-foreground">{eligibleMembers.length}</div>
             <p className="text-sm text-muted-foreground mt-1">
               Completed 12 months
             </p>
