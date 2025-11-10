@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
     if (filteredSessions.length > 0) {
       const adminIds = [...new Set(filteredSessions.map(s => s.admin_id))];
       const { data: admins } = await supabaseAdmin
-        .from('admins')
+        .from('admin')
         .select('id, email')
         .in('id', adminIds);
 
