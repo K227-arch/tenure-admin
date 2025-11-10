@@ -21,6 +21,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { 
   Search, 
   Filter, 
@@ -32,7 +39,12 @@ import {
   Clock,
   CheckCircle,
   XCircle,
-  AlertCircle
+  AlertCircle,
+  User,
+  Mail,
+  Phone,
+  Calendar,
+  CreditCard
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -66,6 +78,9 @@ export default function TransactionManagement() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [billingSchedules, setBillingSchedules] = useState<any[]>([]);
 
   const { data: transactionData, isLoading, error, refetch } = useQuery({
     queryKey: ['transactions', currentPage, searchTerm, statusFilter, typeFilter],
@@ -91,6 +106,25 @@ export default function TransactionManagement() {
 
   const handleExport = () => {
     toast.info("Export functionality coming soon!");
+  };
+
+  const handleViewTransaction = async (transaction: any) => {
+    setSelectedTransaction(transaction);
+    setIsViewDialogOpen(true);
+    
+    // Fetch billing schedules for this user
+    if (transaction.user_id) {
+      try {
+        const response = await fetch(`/api/billing-schedules?user_id=${transaction.user_id}`);
+        if (response.ok) {
+          const data = await response.json();
+          setBillingSchedules(data.schedules || []);
+        }
+      } catch (error) {
+        console.error('Error fetching billing schedules:', error);
+        setBillingSchedules([]);
+      }
+    }
   };
 
   if (isLoading) {
@@ -351,7 +385,7 @@ export default function TransactionManagement() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => toast.info(`Transaction ID: ${transaction.id}`)}
+                          onClick={() => handleViewTransaction(transaction)}
                         >
                           View
                         </Button>
@@ -403,6 +437,133 @@ export default function TransactionManagement() {
           )}
         </CardContent>
       </Card>
+
+      {/* Transaction Details Dialog */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Transaction Details</DialogTitle>
+            <DialogDescription>
+              Complete transaction information and user billing schedules
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedTransaction && (
+            <div className="space-y-6">
+              {/* Transaction Info */}
+              <div className="space-y-4">
+                <h3 className="font-semibold text-lg border-b pb-2">Transaction Information</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Transaction ID</p>
+                    <p className="font-mono text-sm">{selectedTransaction.id}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Amount</p>
+                    <p className="font-semibold text-lg">
+                      {selectedTransaction.currency || 'UGX'} {parseFloat(selectedTransaction.amount || 0).toLocaleString()}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Status</p>
+                    <Badge variant={
+                      selectedTransaction.status === "completed" ? "default" : 
+                      selectedTransaction.status === "failed" ? "destructive" : "secondary"
+                    }>
+                      {selectedTransaction.status}
+                    </Badge>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Type</p>
+                    <Badge variant="outline">{selectedTransaction.type || 'payment'}</Badge>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Date</p>
+                    <p className="text-sm">{new Date(selectedTransaction.created_at).toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Description</p>
+                    <p className="text-sm">{selectedTransaction.description || 'No description'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* User Information */}
+              <div className="space-y-4">
+                <h3 className="font-semibold text-lg border-b pb-2 flex items-center gap-2">
+                  <User className="h-5 w-5" />
+                  User Information
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground flex items-center gap-2">
+                      <User className="h-4 w-4" />
+                      Name
+                    </p>
+                    <p className="font-medium">{selectedTransaction.users?.name || 'Unknown User'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground flex items-center gap-2">
+                      <Mail className="h-4 w-4" />
+                      Email
+                    </p>
+                    <p className="text-sm">{selectedTransaction.users?.email || 'No email'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">User ID</p>
+                    <p className="font-mono text-xs">{selectedTransaction.user_id}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Status</p>
+                    <Badge variant="outline">{selectedTransaction.users?.status || 'Unknown'}</Badge>
+                  </div>
+                </div>
+              </div>
+
+              {/* Billing Schedules */}
+              <div className="space-y-4">
+                <h3 className="font-semibold text-lg border-b pb-2 flex items-center gap-2">
+                  <Calendar className="h-5 w-5" />
+                  Billing Schedules
+                </h3>
+                {billingSchedules.length > 0 ? (
+                  <div className="space-y-3">
+                    {billingSchedules.map((schedule, index) => (
+                      <Card key={index} className="p-4">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <p className="text-sm text-muted-foreground">Amount</p>
+                            <p className="font-semibold">UGX {parseFloat(schedule.amount || 0).toLocaleString()}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Due Date</p>
+                            <p className="text-sm">{schedule.due_date ? new Date(schedule.due_date).toLocaleDateString() : 'N/A'}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Status</p>
+                            <Badge variant={schedule.status === 'paid' ? 'default' : 'secondary'}>
+                              {schedule.status || 'pending'}
+                            </Badge>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Payment Method</p>
+                            <p className="text-sm">{schedule.payment_method || 'Not specified'}</p>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-6 text-muted-foreground">
+                    <Calendar className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p>No billing schedules found for this user</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

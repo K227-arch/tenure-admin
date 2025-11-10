@@ -400,6 +400,33 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
               </TableBody>
             </Table>
           </div>
+          
+          {/* Pagination Controls */}
+          {pagination.pages > 1 && (
+            <div className="flex items-center justify-between px-6 py-4 border-t">
+              <div className="text-sm text-muted-foreground">
+                Showing page {pagination.page} of {pagination.pages} ({pagination.total} total users)
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(currentPage - 1)}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(currentPage + 1)}
+                  disabled={currentPage === pagination.pages}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
