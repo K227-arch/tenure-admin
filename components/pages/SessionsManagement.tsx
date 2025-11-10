@@ -114,22 +114,16 @@ export default function SessionsManagement() {
 
   if (isLoading) {
     return (
-      <div className="space-y-8">
-        <div>
-          <h1 className="text-4xl font-bold text-foreground mb-2">Session Management</h1>
-          <p className="text-muted-foreground">Loading sessions...</p>
-        </div>
+      <div className="space-y-6">
+        <p className="text-muted-foreground">Loading sessions...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="space-y-8">
-        <div>
-          <h1 className="text-4xl font-bold text-foreground mb-2">Session Management</h1>
-          <p className="text-muted-foreground text-red-500">Error loading sessions.</p>
-        </div>
+      <div className="space-y-6">
+        <p className="text-muted-foreground text-red-500">Error loading sessions.</p>
       </div>
     );
   }
@@ -139,17 +133,9 @@ export default function SessionsManagement() {
   const expiredSessions = sessions.filter((s: any) => !s.is_active);
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="flex justify-between items-start">
-        <div>
-          <h1 className="text-4xl font-bold text-foreground mb-2">
-            Session Management
-          </h1>
-          <p className="text-muted-foreground">
-            Monitor and manage active admin sessions.
-          </p>
-        </div>
+    <div className="space-y-6">
+      {/* Actions */}
+      <div className="flex justify-end items-center">
         <div className="flex gap-2">
           <Button onClick={() => refetch()} variant="outline">
             <RefreshCw className="h-4 w-4 mr-2" />

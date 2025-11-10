@@ -14,15 +14,17 @@ export async function PUT(
 ) {
   try {
     const body = await request.json();
-    const { email, password, role, status } = body;
+    const { email, password, name, role, status } = body;
 
     const updateData: any = {
       updated_at: new Date().toISOString(),
     };
 
-    // Only add fields that are provided and exist in the table
+    // Only add fields that are provided
     if (email) updateData.email = email;
-    // Note: role and status columns may not exist in your table
+    if (name !== undefined) updateData.name = name;
+    if (role) updateData.role = role;
+    if (status) updateData.status = status;
 
     // Only hash and update password if provided
     if (password) {

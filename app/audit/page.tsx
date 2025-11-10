@@ -1,10 +1,10 @@
 import { AdminLayout } from "@/components/AdminLayout";
-import AuditLog from "@/components/pages/AuditLog";
+import SecurityMonitoring from "@/components/pages/SecurityMonitoring";
 
 export default function AuditPage() {
   return (
     <AdminLayout>
-      <AuditLog />
+      <SecurityMonitoring />
     </AdminLayout>
   );
 }

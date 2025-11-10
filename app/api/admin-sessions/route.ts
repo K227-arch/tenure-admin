@@ -17,28 +17,49 @@ export async function GET(request: NextRequest) {
 
     let query = supabaseAdmin
       .from('admin_sessions')
-      .select(`
-        *,
-        admin:admin_id (
-          id,
-          email
-        )
-      `)
+      .select('*')
       .order('created_at', { ascending: false });
 
     if (adminId) {
       query = query.eq('admin_id', adminId);
     }
 
-    if (activeOnly) {
-      query = query.eq('is_active', true);
-    }
-
     const { data: sessions, error } = await query;
 
     if (error) throw error;
 
-    return NextResponse.json({ sessions });
+    // Filter active sessions based on expires_at
+    let filteredSessions = sessions || [];
+    if (activeOnly && filteredSessions.length > 0) {
+      const now = new Date();
+      filteredSessions = filteredSessions.filter(session => 
+        new Date(session.expires_at) > now
+      );
+    }
+
+    // Fetch admin details for each session
+    if (filteredSessions.length > 0) {
+      const adminIds = [...new Set(filteredSessions.map(s => s.admin_id))];
+      const { data: admins } = await supabaseAdmin
+        .from('admins')
+        .select('id, email')
+        .in('id', adminIds);
+
+      const adminMap = new Map(admins?.map(a => [a.id, a]) || []);
+      
+      const sessionsWithAdmin = filteredSessions.map(session => {
+        const isActive = new Date(session.expires_at) > new Date();
+        return {
+          ...session,
+          is_active: isActive,
+          admin: adminMap.get(session.admin_id) || null
+        };
+      });
+
+      return NextResponse.json({ sessions: sessionsWithAdmin });
+    }
+
+    return NextResponse.json({ sessions: [] });
   } catch (error) {
     console.error('Error fetching sessions:', error);
     return NextResponse.json({ error: 'Failed to fetch sessions' }, { status: 500 });
@@ -55,11 +76,11 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'session_id is required' }, { status: 400 });
     }
 
+    // Invalidate by setting expires_at to now
     const { error } = await supabaseAdmin
       .from('admin_sessions')
       .update({ 
-        is_active: false,
-        updated_at: new Date().toISOString()
+        expires_at: new Date().toISOString()
       })
       .eq('id', sessionId);
 

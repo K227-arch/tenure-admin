@@ -41,14 +41,13 @@ import { useTheme } from "@/hooks/useTheme";
 const navigationItems = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "User Management", href: "/users", icon: Users },
-  { name: "Admin Accounts", href: "/admin-accounts", icon: Shield },
-  { name: "Admin Sessions", href: "/admin-sessions", icon: FileText },
+  { name: "Admin Accounts", href: "/admin-accounts", icon: UserCog },
+  { name: "Security & Monitoring", href: "/admin-sessions", icon: Shield },
   { name: "Subscriptions", href: "/subscriptions", icon: CreditCard },
   { name: "Transactions", href: "/transactions", icon: Receipt },
   { name: "Financial Reports", href: "/financial", icon: DollarSign },
   { name: "Payout Management", href: "/payouts", icon: Trophy },
   { name: "Content Management", href: "/content", icon: Megaphone },
-  { name: "Audit Log", href: "/audit", icon: FileText },
   { name: "Integrations", href: "/integrations", icon: Settings },
 ];
 
@@ -95,7 +94,10 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           {/* Navigation */}
           <nav className="flex-1 space-y-1 p-4">
             {navigationItems.map((item) => {
-              const isActive = pathname === item.href;
+              // Special handling for Security & Monitoring (matches both /admin-sessions and /audit)
+              const isActive = item.href === "/admin-sessions" 
+                ? pathname === "/admin-sessions" || pathname === "/audit"
+                : pathname === item.href;
               return (
                 <Link
                   key={item.name}

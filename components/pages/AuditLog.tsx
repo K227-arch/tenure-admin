@@ -70,22 +70,16 @@ export default function AuditLog() {
 
   if (isLoading) {
     return (
-      <div className="space-y-8">
-        <div>
-          <h1 className="text-4xl font-bold text-foreground mb-2">Audit Log</h1>
-          <p className="text-muted-foreground">Loading audit logs from database...</p>
-        </div>
+      <div className="space-y-6">
+        <p className="text-muted-foreground">Loading audit logs from database...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="space-y-8">
-        <div>
-          <h1 className="text-4xl font-bold text-foreground mb-2">Audit Log</h1>
-          <p className="text-muted-foreground text-red-500">Error loading audit logs. Please check your database connection.</p>
-        </div>
+      <div className="space-y-6">
+        <p className="text-muted-foreground text-red-500">Error loading audit logs. Please check your database connection.</p>
       </div>
     );
   }
@@ -107,15 +101,7 @@ export default function AuditLog() {
   };
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div>
-        <h1 className="text-4xl font-bold text-foreground mb-2">Audit Log</h1>
-        <p className="text-muted-foreground">
-          Track all major member status changes and system events.
-        </p>
-      </div>
-
+    <div className="space-y-6">
       {/* Filters */}
       <Card className="shadow-card">
         <CardContent className="pt-6">

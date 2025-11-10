@@ -35,7 +35,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { email, password, role, status = 'active' } = body;
+    const { email, password, name, role = 'viewer', status = 'active' } = body;
 
     if (!email || !password) {
       return NextResponse.json(
@@ -49,17 +49,20 @@ export async function POST(request: Request) {
     const hash = await bcrypt.hash(password, salt);
 
     // Build insert object matching the actual table structure
-    // Only include fields that exist in the admin table
     const insertData: any = {
       email,
       hash,
       salt,
+      role,
+      status,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
 
-    // Note: role and status columns may not exist in the table
-    // Only add them if your table has these columns
+    // Add name if provided
+    if (name) {
+      insertData.name = name;
+    }
 
     const { data, error } = await supabaseAdmin
       .from('admin')

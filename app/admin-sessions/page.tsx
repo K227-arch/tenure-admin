@@ -1,10 +1,10 @@
 import { AdminLayout } from "@/components/AdminLayout";
-import SessionsManagement from "@/components/pages/SessionsManagement";
+import SecurityMonitoring from "@/components/pages/SecurityMonitoring";
 
 export default function AdminSessionsPage() {
   return (
     <AdminLayout>
-      <SessionsManagement />
+      <SecurityMonitoring />
     </AdminLayout>
   );
 }
