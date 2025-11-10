@@ -61,18 +61,47 @@ export async function POST(request: Request) {
       );
     }
 
-    // Generate JWT token
+    // Generate JWT token with session ID
+    const sessionId = `sess_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
     const token = sign(
       { 
         id: admin.id,
         email: admin.email,
         role: admin.role,
         name: admin.name,
+        sessionId,
         iat: Math.floor(Date.now() / 1000)
       },
       JWT_SECRET,
       { expiresIn: '24h' }
     );
+
+    // Get client information
+    const ip = request.headers.get('x-forwarded-for') || 
+               request.headers.get('x-real-ip') || 
+               'unknown';
+    const userAgent = request.headers.get('user-agent') || 'unknown';
+
+    // Create session record in admin_sessions table
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 24); // 24 hours from now
+
+    try {
+      await supabaseAdmin.from('admin_sessions').insert({
+        admin_id: admin.id,
+        session_token: sessionId,
+        ip_address: ip,
+        user_agent: userAgent,
+        expires_at: expiresAt.toISOString(),
+        last_activity: new Date().toISOString(),
+        is_active: true,
+        created_at: new Date().toISOString(),
+      });
+    } catch (sessionError) {
+      console.error('Error creating session:', sessionError);
+      // Continue even if session creation fails
+    }
 
     return NextResponse.json({
       success: true,

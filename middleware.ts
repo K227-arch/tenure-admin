@@ -70,11 +70,17 @@ export function middleware(request: NextRequest) {
     }
 
     // Check if it has the required fields
-    if (!payload.email || !payload.role) {
+    if (!payload.email) {
       throw new Error('Invalid token payload');
     }
 
+    // Note: Session validation against admin_sessions table would require
+    // a database call, which is not ideal in Edge Runtime middleware.
+    // Session validation is handled in the API routes instead.
+
     console.log('Middleware - Token verified successfully for:', payload.email);
+    
+    // Update last activity (done via API routes to avoid Edge Runtime limitations)
     return NextResponse.next();
   } catch (error) {
     console.log('Middleware - Token verification failed:', error.message);

@@ -20,6 +20,8 @@ import {
   ChevronDown,
   Sun,
   Moon,
+  Shield,
+  UserCog,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -39,7 +41,8 @@ import { useTheme } from "@/hooks/useTheme";
 const navigationItems = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "User Management", href: "/users", icon: Users },
-  { name: "Admin Accounts", href: "/admin-accounts", icon: Settings },
+  { name: "Admin Accounts", href: "/admin-accounts", icon: Shield },
+  { name: "Admin Sessions", href: "/admin-sessions", icon: FileText },
   { name: "Subscriptions", href: "/subscriptions", icon: CreditCard },
   { name: "Transactions", href: "/transactions", icon: Receipt },
   { name: "Financial Reports", href: "/financial", icon: DollarSign },
