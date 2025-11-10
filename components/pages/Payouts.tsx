@@ -174,7 +174,7 @@ export default function Payouts() {
                 <div className="space-y-1">
                   <div className="flex items-center gap-3">
                     <p className="font-semibold text-foreground">
-                      {member.users?.name || 'Unknown Member'}
+                      {member.users?.name || member.user_name || member.name || 'Unknown Member'}
                     </p>
                     <Badge variant="secondary">#{member.queue_position || member.id}</Badge>
                   </div>
