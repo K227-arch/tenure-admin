@@ -42,15 +42,28 @@ export default function Payouts() {
     refetchInterval: 60000, // Refetch every minute
   });
 
-  // Real-time subscription for membership queue changes
+  // Real-time subscription for membership queue and payment changes
   useEffect(() => {
     const channel = supabase
-      .channel('payout-membership-queue')
+      .channel('payout-realtime')
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'membership_queue' },
         (payload) => {
           console.log('Membership queue change received:', payload);
-          // Invalidate and refetch the payout data
+          queryClient.invalidateQueries({ queryKey: ['payout-data'] });
+        }
+      )
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'user_payments' },
+        (payload) => {
+          console.log('Payment change received:', payload);
+          queryClient.invalidateQueries({ queryKey: ['payout-data'] });
+        }
+      )
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'payout_management' },
+        (payload) => {
+          console.log('Payout management change received:', payload);
           queryClient.invalidateQueries({ queryKey: ['payout-data'] });
         }
       )
@@ -73,6 +86,11 @@ export default function Payouts() {
   // Extract eligible members from queue data
   const eligibleMembers = data?.queue?.members || [];
   const payoutHistory = data?.payouts?.payouts || [];
+  
+  // Extract stats from API
+  const totalPayoutPool = data?.payouts?.stats?.totalPayoutPool || 0;
+  const nextPayoutDate = data?.payouts?.stats?.nextPayoutDate || 'TBD';
+  const monthsUntilPayout = data?.payouts?.stats?.monthsUntilPayout || 0;
 
   if (isLoading) {
     return (
@@ -144,7 +162,9 @@ export default function Payouts() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-foreground">$42,000</div>
+            <div className="text-3xl font-bold text-foreground">
+              ${totalPayoutPool.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
             <p className="text-sm text-muted-foreground mt-1">
               Available for distribution
             </p>
@@ -174,8 +194,10 @@ export default function Payouts() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-foreground">Jan 2026</div>
-            <p className="text-sm text-muted-foreground mt-1">4 months away</p>
+            <div className="text-3xl font-bold text-foreground">{nextPayoutDate}</div>
+            <p className="text-sm text-muted-foreground mt-1">
+              {monthsUntilPayout === 0 ? 'This month' : `${monthsUntilPayout} month${monthsUntilPayout !== 1 ? 's' : ''} away`}
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -206,9 +228,9 @@ export default function Payouts() {
                 <div className="flex items-center gap-4">
                   <div className="text-right">
                     <p className="text-sm text-muted-foreground mb-1">
-                      $300 Pre-payment
+                      ${member.prepayment_amount || member.amount || 300} Pre-payment
                     </p>
-                    {member.prepaymentStatus === "completed" ? (
+                    {member.prepayment_status === "completed" || member.prepaymentStatus === "completed" || member.payment_status === "completed" ? (
                       <Badge variant="default" className="bg-success">
                         <CheckCircle className="h-3 w-3 mr-1" />
                         Completed
