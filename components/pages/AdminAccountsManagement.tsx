@@ -161,7 +161,7 @@ export default function AdminAccountsManagement() {
       email: '',
       password: '',
       name: '',
-      role: 'viewer',
+      role: 'admin',
       status: 'active',
     });
     setShowPassword(false);
@@ -185,7 +185,7 @@ export default function AdminAccountsManagement() {
       email: admin.email || '',
       password: '',
       name: admin.name || admin.email?.split('@')[0] || '',
-      role: admin.role || 'viewer',
+      role: admin.role || 'admin',
       status: admin.status || 'active',
     });
     setIsEditDialogOpen(true);
@@ -206,8 +206,6 @@ export default function AdminAccountsManagement() {
     switch (role) {
       case 'super_admin': return 'destructive';
       case 'admin': return 'default';
-      case 'manager': return 'secondary';
-      case 'viewer': return 'outline';
       default: return 'outline';
     }
   };
@@ -317,8 +315,6 @@ export default function AdminAccountsManagement() {
                     <SelectContent>
                       <SelectItem value="super_admin">Super Admin</SelectItem>
                       <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="manager">Manager</SelectItem>
-                      <SelectItem value="viewer">Viewer</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -380,11 +376,11 @@ export default function AdminAccountsManagement() {
         </Card>
         <Card className="shadow-card">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Managers</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Admins</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-primary">
-              {admins.filter((a: any) => a.role === 'manager').length}
+              {admins.filter((a: any) => a.role === 'admin').length}
             </div>
           </CardContent>
         </Card>
@@ -537,8 +533,6 @@ export default function AdminAccountsManagement() {
                 <SelectContent>
                   <SelectItem value="super_admin">Super Admin</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="manager">Manager</SelectItem>
-                  <SelectItem value="viewer">Viewer</SelectItem>
                 </SelectContent>
               </Select>
             </div>
