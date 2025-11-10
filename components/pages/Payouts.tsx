@@ -16,9 +16,18 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Trophy, CheckCircle, XCircle, AlertCircle, Play } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Trophy, CheckCircle, XCircle, AlertCircle, Play, User, Mail, Phone, Calendar, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase/client";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 async function fetchPayoutData() {
   const [payoutsRes, queueRes] = await Promise.allSettled([
@@ -34,6 +43,8 @@ async function fetchPayoutData() {
 
 export default function Payouts() {
   const [isProcessing, setIsProcessing] = useState(false);
+  const [selectedMember, setSelectedMember] = useState<any>(null);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const queryClient = useQueryClient();
 
   const { data, isLoading, error } = useQuery({
@@ -242,7 +253,14 @@ export default function Payouts() {
                       </Badge>
                     )}
                   </div>
-                  <Button variant="outline" size="sm">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => {
+                      setSelectedMember(member);
+                      setIsDetailsOpen(true);
+                    }}
+                  >
                     View Details
                   </Button>
                 </div>
@@ -287,6 +305,119 @@ export default function Payouts() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Member Details Dialog */}
+      <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Member Details</DialogTitle>
+            <DialogDescription>
+              Complete information about the eligible member
+            </DialogDescription>
+          </DialogHeader>
+          {selectedMember && (
+            <div className="space-y-6">
+              {/* User Profile */}
+              <div className="flex items-center gap-4">
+                <Avatar className="h-16 w-16">
+                  <AvatarImage src={selectedMember.users?.image || selectedMember.user_image} />
+                  <AvatarFallback>
+                    <User className="h-8 w-8" />
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <h3 className="text-lg font-semibold">
+                    {selectedMember.users?.name || selectedMember.user_name || selectedMember.name || 'Unknown Member'}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Queue Position #{selectedMember.queue_position || selectedMember.id}
+                  </p>
+                </div>
+              </div>
+
+              {/* Contact Information */}
+              <div className="space-y-3">
+                <h4 className="font-semibold text-sm text-muted-foreground uppercase">Contact Information</h4>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3">
+                    <Mail className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm">
+                      {selectedMember.users?.email || selectedMember.user_email || selectedMember.email || 'No email'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Phone className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm">
+                      {selectedMember.users?.phone || selectedMember.phone || 'No phone'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Membership Information */}
+              <div className="space-y-3">
+                <h4 className="font-semibold text-sm text-muted-foreground uppercase">Membership Information</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Status</p>
+                    <Badge variant="default" className="mt-1">
+                      {selectedMember.status || 'Active'}
+                    </Badge>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Queue Position</p>
+                    <p className="text-sm font-semibold mt-1">#{selectedMember.queue_position || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Join Date</p>
+                    <div className="flex items-center gap-1 mt-1">
+                      <Calendar className="h-3 w-3 text-muted-foreground" />
+                      <p className="text-sm">
+                        {selectedMember.created_at ? new Date(selectedMember.created_at).toLocaleDateString() : 'N/A'}
+                      </p>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">User ID</p>
+                    <p className="text-xs font-mono mt-1 truncate">
+                      {selectedMember.user_id || selectedMember.users?.id || 'N/A'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Payment Information */}
+              <div className="space-y-3">
+                <h4 className="font-semibold text-sm text-muted-foreground uppercase">Payment Information</h4>
+                <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Pre-payment Amount</span>
+                    <span className="font-semibold">
+                      ${selectedMember.prepayment_amount || selectedMember.amount || 300}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Payment Status</span>
+                    {selectedMember.prepayment_status === "completed" || 
+                     selectedMember.prepaymentStatus === "completed" || 
+                     selectedMember.payment_status === "completed" ? (
+                      <Badge variant="default" className="bg-success">
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                        Completed
+                      </Badge>
+                    ) : (
+                      <Badge variant="destructive">
+                        <XCircle className="h-3 w-3 mr-1" />
+                        Pending
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
