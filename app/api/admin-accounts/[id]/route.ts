@@ -1,11 +1,33 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import bcrypt from 'bcryptjs';
+import { verify } from 'jsonwebtoken';
+import { cookies } from 'next/headers';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
+// Helper function to verify admin role
+async function verifyAdminRole(): Promise<{ isSuperAdmin: boolean; adminId: string | null; error: string | null }> {
+  try {
+    const cookieStore = cookies();
+    const token = cookieStore.get('admin_token')?.value;
+
+    if (!token) {
+      return { isSuperAdmin: false, adminId: null, error: 'Unauthorized' };
+    }
+
+    const decoded = verify(token, JWT_SECRET) as any;
+    const isSuperAdmin = decoded.role === 'super_admin' || decoded.identity === 'super_admin';
+    
+    return { isSuperAdmin, adminId: decoded.id, error: null };
+  } catch (error) {
+    return { isSuperAdmin: false, adminId: null, error: 'Invalid token' };
+  }
+}
 
 // PUT - Update admin account
 export async function PUT(
@@ -13,6 +35,16 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Check if user is super admin
+    const { isSuperAdmin, error: authError } = await verifyAdminRole();
+    
+    if (authError || !isSuperAdmin) {
+      return NextResponse.json(
+        { error: 'Only Super Admins can update admin accounts' },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const { email, password, name, role, status } = body;
 
@@ -59,6 +91,16 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Check if user is super admin
+    const { isSuperAdmin, error: authError } = await verifyAdminRole();
+    
+    if (authError || !isSuperAdmin) {
+      return NextResponse.json(
+        { error: 'Only Super Admins can delete admin accounts' },
+        { status: 403 }
+      );
+    }
+
     const { error } = await supabaseAdmin
       .from('admin')
       .delete()

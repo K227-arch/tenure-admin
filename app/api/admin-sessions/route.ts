@@ -26,7 +26,12 @@ export async function GET(request: NextRequest) {
 
     const { data: sessions, error } = await query;
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error fetching sessions from database:', error);
+      throw error;
+    }
+
+    console.log(`Fetched ${sessions?.length || 0} sessions from database`);
 
     // Filter active sessions based on expires_at
     let filteredSessions = sessions || [];
@@ -39,7 +44,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch admin details for each session
     if (filteredSessions.length > 0) {
-      const adminIds = [...new Set(filteredSessions.map(s => s.admin_id))];
+      const adminIds = Array.from(new Set(filteredSessions.map(s => s.admin_id)));
       const { data: admins } = await supabaseAdmin
         .from('admin')
         .select('id, email')

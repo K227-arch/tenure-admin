@@ -87,8 +87,9 @@ export async function POST(request: Request) {
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 24); // 24 hours from now
 
-    try {
-      await supabaseAdmin.from('admin_sessions').insert({
+    const { data: sessionData, error: sessionError } = await supabaseAdmin
+      .from('admin_sessions')
+      .insert({
         admin_id: admin.id,
         session_token: sessionId,
         ip_address: ip,
@@ -96,11 +97,15 @@ export async function POST(request: Request) {
         expires_at: expiresAt.toISOString(),
         last_activity: new Date().toISOString(),
         is_active: true,
-        created_at: new Date().toISOString(),
-      });
-    } catch (sessionError) {
+      })
+      .select()
+      .single();
+
+    if (sessionError) {
       console.error('Error creating session:', sessionError);
-      // Continue even if session creation fails
+      console.error('Session error details:', JSON.stringify(sessionError, null, 2));
+    } else {
+      console.log('Session created successfully:', sessionData?.id);
     }
 
     return NextResponse.json({

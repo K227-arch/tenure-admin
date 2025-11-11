@@ -198,6 +198,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                     <p className="text-xs leading-none text-muted-foreground">
                       {adminUser.email}
                     </p>
+                    <Badge variant={adminUser.role === 'super_admin' ? 'destructive' : 'default'} className="text-xs mt-2 w-fit">
+                      {adminUser.role === 'super_admin' ? 'Super Admin' : 'Admin'}
+                    </Badge>
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />

@@ -83,7 +83,7 @@ export function middleware(request: NextRequest) {
     // Update last activity (done via API routes to avoid Edge Runtime limitations)
     return NextResponse.next();
   } catch (error) {
-    console.log('Middleware - Token verification failed:', error.message);
+    console.log('Middleware - Token verification failed:', error instanceof Error ? error.message : 'Unknown error');
     return NextResponse.redirect(new URL('/login', request.url));
   }
 }

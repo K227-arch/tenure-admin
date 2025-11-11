@@ -58,7 +58,12 @@ export default function SessionsManagement() {
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['admin-sessions', showActiveOnly],
-    queryFn: () => fetchSessions(showActiveOnly),
+    queryFn: async () => {
+      console.log('Fetching sessions, activeOnly:', showActiveOnly);
+      const result = await fetchSessions(showActiveOnly);
+      console.log('Sessions fetched:', result);
+      return result;
+    },
     refetchInterval: 30000,
   });
 

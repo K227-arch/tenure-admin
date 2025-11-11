@@ -44,10 +44,10 @@ export function useAdminUser() {
         
         // Update user data with real token data
         setAdminUser({
-          id: 'admin-1',
+          id: payload.id || 'admin-1',
           name: payload.name || 'Admin User',
           email: payload.email || 'admin@tenure.com',
-          role: payload.role === 'admin' ? 'Super Admin' : payload.role,
+          role: payload.role || payload.identity || 'admin',
           isOnline: true,
         });
       } catch (error) {

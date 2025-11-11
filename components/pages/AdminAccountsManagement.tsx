@@ -42,9 +42,10 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Plus, Edit, Trash2, Shield, Eye, EyeOff, RefreshCw, UserCog } from "lucide-react";
+import { Plus, Edit, Trash2, Shield, Eye, EyeOff, RefreshCw, UserCog, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase/client";
+import { useAdminUser } from "@/hooks/useAdminUser";
 
 async function fetchAdmins() {
   const response = await fetch('/api/admin-accounts');
@@ -84,6 +85,9 @@ async function deleteAdmin(id: string) {
 }
 
 export default function AdminAccountsManagement() {
+  const { adminUser } = useAdminUser();
+  const isSuperAdmin = adminUser.role === 'super_admin';
+  
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedAdmin, setSelectedAdmin] = useState<any>(null);
@@ -193,8 +197,14 @@ export default function AdminAccountsManagement() {
 
   const handleUpdate = () => {
     if (!selectedAdmin) return;
+    
+    // Require password for updates
+    if (!formData.password) {
+      toast.error('Password is required to update admin account');
+      return;
+    }
+    
     const updateData = { ...formData };
-    if (!updateData.password) delete updateData.password;
     updateMutation.mutate({ id: selectedAdmin.id, data: updateData });
   };
 
@@ -243,7 +253,9 @@ export default function AdminAccountsManagement() {
             Admin Accounts
           </h1>
           <p className="text-muted-foreground">
-            Manage administrator accounts and their roles.
+            {isSuperAdmin 
+              ? "Manage administrator accounts and their roles." 
+              : "View administrator accounts. Only Super Admins can make changes."}
           </p>
         </div>
         <div className="flex gap-2">
@@ -251,13 +263,14 @@ export default function AdminAccountsManagement() {
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
-          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={resetForm}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Admin
-              </Button>
-            </DialogTrigger>
+          {isSuperAdmin && (
+            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+              <DialogTrigger asChild>
+                <Button onClick={resetForm}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Admin
+                </Button>
+              </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
               <DialogHeader>
                 <DialogTitle>Create Admin Account</DialogTitle>
@@ -341,6 +354,7 @@ export default function AdminAccountsManagement() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+          )}
         </div>
       </div>
 
@@ -431,16 +445,17 @@ export default function AdminAccountsManagement() {
                     </TableCell>
                     <TableCell>{new Date(admin.created_at).toLocaleDateString()}</TableCell>
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button variant="ghost" size="sm" onClick={() => handleEdit(admin)}>
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="sm">
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </AlertDialogTrigger>
+                      {isSuperAdmin ? (
+                        <div className="flex items-center justify-end gap-2">
+                          <Button variant="ghost" size="sm" onClick={() => handleEdit(admin)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
                           <AlertDialogContent>
                             <AlertDialogHeader>
                               <AlertDialogTitle>Are you sure?</AlertDialogTitle>
@@ -461,6 +476,11 @@ export default function AdminAccountsManagement() {
                           </AlertDialogContent>
                         </AlertDialog>
                       </div>
+                      ) : (
+                        <div className="flex items-center justify-end gap-2">
+                          <span className="text-sm text-muted-foreground">View Only</span>
+                        </div>
+                      )}
                     </TableCell>
                   </TableRow>
                 )) : (
@@ -506,14 +526,15 @@ export default function AdminAccountsManagement() {
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-password" className="text-right">Password</Label>
+              <Label htmlFor="edit-password" className="text-right">Password *</Label>
               <div className="col-span-3 relative">
                 <Input
                   id="edit-password"
                   type={showPassword ? "text" : "password"}
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  placeholder="Leave blank to keep current"
+                  placeholder="Required for security"
+                  required
                 />
                 <button
                   type="button"
