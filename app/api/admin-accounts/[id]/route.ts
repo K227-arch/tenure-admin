@@ -17,14 +17,19 @@ async function verifyAdminRole(): Promise<{ isSuperAdmin: boolean; adminId: stri
     const token = cookieStore.get('admin_token')?.value;
 
     if (!token) {
+      console.log('No token found in cookies');
       return { isSuperAdmin: false, adminId: null, error: 'Unauthorized' };
     }
 
     const decoded = verify(token, JWT_SECRET) as any;
-    const isSuperAdmin = decoded.role === 'super_admin' || decoded.identity === 'super_admin';
+    console.log('Decoded token role:', decoded.role);
+    
+    const isSuperAdmin = decoded.role === 'super_admin';
+    console.log('Is super admin:', isSuperAdmin);
     
     return { isSuperAdmin, adminId: decoded.id, error: null };
   } catch (error) {
+    console.error('Token verification error:', error);
     return { isSuperAdmin: false, adminId: null, error: 'Invalid token' };
   }
 }
@@ -66,6 +71,8 @@ export async function PUT(
       updateData.salt = salt;
     }
 
+    console.log('Updating admin with data:', { ...updateData, password: '***', hash: '***', salt: '***' });
+
     const { data, error } = await supabaseAdmin
       .from('admin')
       .update(updateData)
@@ -73,7 +80,16 @@ export async function PUT(
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase update error:', error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
+      return NextResponse.json(
+        { error: error.message || 'Failed to update admin account' },
+        { status: 500 }
+      );
+    }
+
+    console.log('Admin updated successfully:', data?.id);
 
     // Remove sensitive fields from response
     const { password: _, hash: __, salt: ___, reset_password_token: ____, ...adminWithoutSensitiveData } = data;

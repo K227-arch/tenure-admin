@@ -21,7 +21,7 @@ async function verifyAdminRole(request: Request): Promise<{ isSuperAdmin: boolea
     }
 
     const decoded = verify(token, JWT_SECRET) as any;
-    const isSuperAdmin = decoded.role === 'super_admin' || decoded.identity === 'super_admin';
+    const isSuperAdmin = decoded.role === 'super_admin';
     
     return { isSuperAdmin, adminId: decoded.id, error: null };
   } catch (error) {
