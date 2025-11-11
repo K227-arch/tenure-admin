@@ -20,7 +20,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Search, Filter } from "lucide-react";
+import { Search, Filter, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import { supabase } from "@/lib/supabase/client";
 
 async function fetchAuditLogs(page = 1, search = '', action = '') {
@@ -66,6 +68,11 @@ export default function AuditLog() {
   const handleSearch = () => {
     setCurrentPage(1);
     refetch();
+  };
+
+  const handleRefresh = () => {
+    refetch();
+    toast.success("Audit logs refreshed!");
   };
 
   if (isLoading) {
@@ -122,13 +129,22 @@ export default function AuditLog() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Actions</SelectItem>
-                <SelectItem value="Member Sign-up">Sign-up</SelectItem>
-                <SelectItem value="Payment Received">Payment</SelectItem>
-                <SelectItem value="Payment Default">Default</SelectItem>
-                <SelectItem value="Payout Triggered">Payout</SelectItem>
-                <SelectItem value="Member Re-joining">Re-joining</SelectItem>
+                <SelectItem value="Member Sign-up">Member Sign-up</SelectItem>
+                <SelectItem value="Profile Updated">Profile Updated</SelectItem>
+                <SelectItem value="User Activity">User Activity</SelectItem>
+                <SelectItem value="Payment Received">Payment Received</SelectItem>
+                <SelectItem value="Payment Failed">Payment Failed</SelectItem>
+                <SelectItem value="Payment Pending">Payment Pending</SelectItem>
+                <SelectItem value="Subscription Updated">Subscription Updated</SelectItem>
+                <SelectItem value="login_attempt">Login Attempt</SelectItem>
+                <SelectItem value="signup_attempt">Signup Attempt</SelectItem>
+                <SelectItem value="error">Error</SelectItem>
               </SelectContent>
             </Select>
+            <Button onClick={handleRefresh} variant="outline">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
           </div>
         </CardContent>
       </Card>

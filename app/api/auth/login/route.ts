@@ -28,6 +28,16 @@ export async function POST(request: Request) {
       .single();
 
     if (error || !admin) {
+      // Log failed login attempt
+      await supabaseAdmin.from('user_audit_logs').insert({
+        user_id: email,
+        action: 'login_attempt',
+        entity_type: 'admin',
+        success: false,
+        error_message: 'Invalid email or password',
+        metadata: { email }
+      });
+
       return NextResponse.json(
         { error: 'Invalid email or password' },
         { status: 401 }
@@ -108,6 +118,20 @@ export async function POST(request: Request) {
       console.log('Session created successfully:', sessionData?.id);
     }
 
+    // Log successful login attempt
+    await supabaseAdmin.from('user_audit_logs').insert({
+      user_id: admin.id,
+      action: 'login_attempt',
+      entity_type: 'admin',
+      entity_id: admin.id,
+      success: true,
+      metadata: { 
+        email: admin.email,
+        session_id: sessionId,
+        ip_address: ip
+      }
+    });
+
     return NextResponse.json({
       success: true,
       token,
@@ -120,6 +144,16 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error('Login error:', error);
+    
+    // Log error
+    await supabaseAdmin.from('user_audit_logs').insert({
+      action: 'error',
+      entity_type: 'admin_login',
+      success: false,
+      error_message: error instanceof Error ? error.message : 'Unknown error',
+      metadata: { error: String(error) }
+    });
+
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

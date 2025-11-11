@@ -112,6 +112,20 @@ export async function POST(request: Request) {
     // Remove sensitive fields from response
     const { hash: _, salt: __, ...adminWithoutPassword } = data;
 
+    // Log admin account creation
+    await supabaseAdmin.from('user_audit_logs').insert({
+      user_id: data.id,
+      action: 'signup_attempt',
+      entity_type: 'admin',
+      entity_id: data.id,
+      success: true,
+      metadata: { 
+        email: data.email,
+        role: data.role,
+        created_by: 'super_admin'
+      }
+    });
+
     return NextResponse.json({ admin: adminWithoutPassword }, { status: 201 });
   } catch (error) {
     console.error('Error creating admin:', error);
