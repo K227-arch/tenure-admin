@@ -254,7 +254,7 @@ export default function AdminAccountsManagement() {
           </h1>
           <p className="text-muted-foreground">
             {isSuperAdmin 
-              ? "Manage administrator accounts and their roles." 
+              ? "Manage administrator accounts and their identities." 
               : "View administrator accounts. Only Super Admins can make changes."}
           </p>
         </div>
@@ -275,7 +275,7 @@ export default function AdminAccountsManagement() {
               <DialogHeader>
                 <DialogTitle>Create Admin Account</DialogTitle>
                 <DialogDescription>
-                  Add a new administrator with specific role and permissions.
+                  Add a new administrator with specific identity and permissions.
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
@@ -320,7 +320,7 @@ export default function AdminAccountsManagement() {
                   </div>
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="role" className="text-right">Role</Label>
+                  <Label htmlFor="role" className="text-right">Identity</Label>
                   <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
                     <SelectTrigger className="col-span-3">
                       <SelectValue />
@@ -415,7 +415,7 @@ export default function AdminAccountsManagement() {
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
-                  <TableHead>Role</TableHead>
+                  <TableHead>Identity</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Created</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -546,7 +546,7 @@ export default function AdminAccountsManagement() {
               </div>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-role" className="text-right">Role</Label>
+              <Label htmlFor="edit-role" className="text-right">Identity</Label>
               <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
                 <SelectTrigger className="col-span-3">
                   <SelectValue />
