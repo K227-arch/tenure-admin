@@ -88,7 +88,7 @@ export async function POST(request: Request) {
     expiresAt.setHours(expiresAt.getHours() + 24); // 24 hours from now
 
     const { data: sessionData, error: sessionError } = await supabaseAdmin
-      .from('admin_sessions')
+      .from('session')
       .insert({
         admin_id: admin.id,
         session_token: sessionId,

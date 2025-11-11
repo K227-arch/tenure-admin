@@ -13,7 +13,7 @@ export async function POST() {
 
     // Mark expired sessions as inactive
     const { error } = await supabaseAdmin
-      .from('admin_sessions')
+      .from('session')
       .update({ 
         is_active: false,
         updated_at: now

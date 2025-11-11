@@ -23,7 +23,7 @@ export async function POST(request: Request) {
         if (decoded.sessionId) {
           // Mark session as inactive
           await supabaseAdmin
-            .from('admin_sessions')
+            .from('session')
             .update({ 
               is_active: false,
               updated_at: new Date().toISOString()

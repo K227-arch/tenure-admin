@@ -16,12 +16,17 @@ export async function GET(request: NextRequest) {
     const activeOnly = searchParams.get('active_only') === 'true';
 
     let query = supabaseAdmin
-      .from('admin_sessions')
+      .from('session')
       .select('*')
       .order('created_at', { ascending: false });
 
     if (adminId) {
       query = query.eq('admin_id', adminId);
+    }
+
+    // Apply active filter at database level if requested
+    if (activeOnly) {
+      query = query.gt('expires_at', new Date().toISOString());
     }
 
     const { data: sessions, error } = await query;
@@ -33,26 +38,20 @@ export async function GET(request: NextRequest) {
 
     console.log(`Fetched ${sessions?.length || 0} sessions from database`);
 
-    // Filter active sessions based on expires_at
     let filteredSessions = sessions || [];
-    if (activeOnly && filteredSessions.length > 0) {
-      const now = new Date();
-      filteredSessions = filteredSessions.filter(session => 
-        new Date(session.expires_at) > now
-      );
-    }
 
-    // Fetch admin details for each session
+    // Fetch admin details separately
     if (filteredSessions.length > 0) {
       const adminIds = Array.from(new Set(filteredSessions.map(s => s.admin_id)));
       const { data: admins } = await supabaseAdmin
         .from('admin')
-        .select('id, email')
+        .select('id, email, name')
         .in('id', adminIds);
 
       const adminMap = new Map(admins?.map(a => [a.id, a]) || []);
-      
-      const sessionsWithAdmin = filteredSessions.map(session => {
+
+      // Add is_active flag and admin details
+      const sessionsWithStatus = filteredSessions.map(session => {
         const isActive = new Date(session.expires_at) > new Date();
         return {
           ...session,
@@ -61,7 +60,7 @@ export async function GET(request: NextRequest) {
         };
       });
 
-      return NextResponse.json({ sessions: sessionsWithAdmin });
+      return NextResponse.json({ sessions: sessionsWithStatus });
     }
 
     return NextResponse.json({ sessions: [] });
@@ -83,7 +82,7 @@ export async function DELETE(request: NextRequest) {
 
     // Invalidate by setting expires_at to now
     const { error } = await supabaseAdmin
-      .from('admin_sessions')
+      .from('session')
       .update({ 
         expires_at: new Date().toISOString()
       })
