@@ -30,6 +30,7 @@ export async function GET(request: Request) {
       success,
       error_message,
       metadata,
+      user_agent,
       created_at
     `)
     .order('created_at', { ascending: false })
@@ -115,7 +116,7 @@ export async function GET(request: Request) {
     auditLogs.push({
       id: `user-audit-${log.id}`,
       timestamp: log.created_at,
-      user: log.user_id || 'Unknown',
+      user: log.user_agent || log.user_id || 'Unknown',
       action: log.action,
       details: `${log.entity_type || 'entity'} ${log.entity_id || ''}`.trim(),
       status: log.success === false ? 'warning' : 'success',

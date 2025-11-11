@@ -28,6 +28,9 @@ export async function POST(request: Request) {
       .single();
 
     if (error || !admin) {
+      // Get user agent for logging
+      const userAgent = request.headers.get('user-agent') || 'unknown';
+      
       // Log failed login attempt
       await supabaseAdmin.from('user_audit_logs').insert({
         user_id: email,
@@ -35,6 +38,7 @@ export async function POST(request: Request) {
         entity_type: 'admin',
         success: false,
         error_message: 'Invalid email or password',
+        user_agent: userAgent,
         metadata: { email }
       });
 
@@ -125,6 +129,7 @@ export async function POST(request: Request) {
       entity_type: 'admin',
       entity_id: admin.id,
       success: true,
+      user_agent: userAgent,
       metadata: { 
         email: admin.email,
         session_id: sessionId,
@@ -146,11 +151,13 @@ export async function POST(request: Request) {
     console.error('Login error:', error);
     
     // Log error
+    const userAgent = request.headers.get('user-agent') || 'unknown';
     await supabaseAdmin.from('user_audit_logs').insert({
       action: 'error',
       entity_type: 'admin_login',
       success: false,
       error_message: error instanceof Error ? error.message : 'Unknown error',
+      user_agent: userAgent,
       metadata: { error: String(error) }
     });
 
