@@ -43,10 +43,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Search, Filter, Eye, Mail, Phone, User, Clock } from "lucide-react";
+import { Search, Filter, Eye, Mail, Phone, User, Clock, Download, FileText } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase/client";
+import { exportToCSV, exportToPDF, formatDataForExport } from "@/lib/utils/export";
 
 async function fetchUsers(page = 1, search = '', status = '', role = '') {
   const params = new URLSearchParams({
@@ -248,7 +249,29 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
             View and manage all members in your system.
           </p>
         </div>
-        {/* Add User functionality removed - users are managed through authentication system */}
+        <div className="flex gap-2">
+          <Button
+            onClick={() => {
+              const exportData = formatDataForExport(users, ['password', 'hash', 'salt']);
+              exportToCSV(exportData, 'users');
+              toast.success('Users exported to CSV!');
+            }}
+            variant="outline"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Export CSV
+          </Button>
+          <Button
+            onClick={() => {
+              exportToPDF('users-table-container', 'Users Report');
+              toast.success('Generating PDF...');
+            }}
+            variant="outline"
+          >
+            <FileText className="h-4 w-4 mr-2" />
+            Export PDF
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -284,7 +307,7 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
       </Card>
 
       {/* Members Table */}
-      <Card className="shadow-card">
+      <Card className="shadow-card" id="users-table-container">
         <CardHeader>
           <CardTitle>Users ({pagination.total})</CardTitle>
         </CardHeader>
