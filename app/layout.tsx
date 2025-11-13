@@ -10,20 +10,9 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: 'Admin Dashboard - Membership Management System',
+  title: 'TenurE Admin - Membership Management System',
   description: 'Comprehensive admin dashboard for managing memberships, financial reports, payouts, and member engagement',
-  authors: [{ name: 'Lovable' }],
-  openGraph: {
-    title: 'Admin Dashboard - Membership Management System',
-    description: 'Comprehensive admin dashboard for managing memberships, financial reports, payouts, and member engagement',
-    type: 'website',
-    images: ['https://lovable.dev/opengraph-image-p98pqg.png'],
-  },
-  twitter: {
-    card: 'summary_large_image',
-    site: '@lovable_dev',
-    images: ['https://lovable.dev/opengraph-image-p98pqg.png'],
-  },
+  authors: [{ name: 'TenurE' }],
 }
 
 export default function RootLayout({
