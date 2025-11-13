@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { sign } from 'jsonwebtoken';
 import { createClient } from '@supabase/supabase-js';
 import bcrypt from 'bcryptjs';
+import { generate5DigitCode, hashCode, getCodeExpiration } from '@/lib/utils/2fa';
+import { send2FAEmail } from '@/lib/utils/send-email';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -75,78 +77,51 @@ export async function POST(request: Request) {
       );
     }
 
-    // Generate JWT token with session ID
-    const sessionId = `sess_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
-    const token = sign(
-      { 
-        id: admin.id,
-        email: admin.email,
-        role: admin.role,
-        name: admin.name,
-        sessionId,
-        iat: Math.floor(Date.now() / 1000)
-      },
-      JWT_SECRET,
-      { expiresIn: '24h' }
-    );
+    // Generate 5-digit login code
+    const loginCode = generate5DigitCode();
+    const codeHash = hashCode(loginCode);
+    const expiresAt = getCodeExpiration(10); // 10 minutes
 
-    // Get client information
-    const ip = request.headers.get('x-forwarded-for') || 
-               request.headers.get('x-real-ip') || 
-               'unknown';
-    const userAgent = request.headers.get('user-agent') || 'unknown';
-
-    // Create session record in admin_sessions table
-    const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 24); // 24 hours from now
-
-    const { data: sessionData, error: sessionError } = await supabaseAdmin
-      .from('session')
+    // Store the code in database
+    const { error: codeError } = await supabaseAdmin
+      .from('admin_2fa_codes')
       .insert({
         admin_id: admin.id,
-        session_token: sessionId,
-        ip_address: ip,
-        user_agent: userAgent,
+        code: codeHash,
         expires_at: expiresAt.toISOString(),
-        last_activity: new Date().toISOString(),
-        is_active: true,
-      })
-      .select()
-      .single();
+        used: false,
+        attempts: 0,
+      });
 
-    if (sessionError) {
-      console.error('Error creating session:', sessionError);
-      console.error('Session error details:', JSON.stringify(sessionError, null, 2));
-    } else {
-      console.log('Session created successfully:', sessionData?.id);
+    if (codeError) {
+      console.error('Error storing 2FA code:', codeError);
+      return NextResponse.json(
+        { error: 'Failed to generate verification code' },
+        { status: 500 }
+      );
     }
 
-    // Log successful login attempt
-    await supabaseAdmin.from('user_audit_logs').insert({
-      user_id: admin.id,
-      action: 'login_attempt',
-      entity_type: 'admin',
-      entity_id: admin.id,
-      success: true,
-      user_agent: userAgent,
-      metadata: { 
-        email: admin.email,
-        session_id: sessionId,
-        ip_address: ip
-      }
-    });
+    // Send code via email
+    const emailResult = await send2FAEmail(admin.email, loginCode, 'login');
+    
+    if (!emailResult.success) {
+      console.error('Failed to send email:', emailResult.error);
+      return NextResponse.json(
+        { error: 'Failed to send verification code' },
+        { status: 500 }
+      );
+    }
 
+    // Return success with admin ID (don't create session yet)
     return NextResponse.json({
       success: true,
-      token,
-      user: {
-        id: admin.id,
-        email: admin.email,
-        name: admin.name,
-        role: admin.role
-      }
+      requiresVerification: true,
+      adminId: admin.id,
+      email: admin.email,
+      message: 'Verification code sent to your email'
     });
+
+
   } catch (error) {
     console.error('Login error:', error);
     

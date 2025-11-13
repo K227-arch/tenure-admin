@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Eye, EyeOff, Lock, Mail, Shield } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail, Shield, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 
 export default function Login() {
@@ -18,6 +18,9 @@ export default function Login() {
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [step, setStep] = useState<'login' | 'verify'>('login');
+  const [verificationCode, setVerificationCode] = useState("");
+  const [adminId, setAdminId] = useState("");
   const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -36,25 +39,61 @@ export default function Login() {
 
       const data = await response.json();
 
-      if (response.ok) {
-        // Store auth token in cookie with extended expiry if remember me is checked
-        const maxAge = rememberMe ? 86400 * 30 : 86400; // 30 days if remember me, otherwise 1 day
+      if (response.ok && data.requiresVerification) {
+        setAdminId(data.adminId);
+        setStep('verify');
+        toast.success("Verification code sent to your email!");
+      } else if (response.ok) {
+        // Direct login (shouldn't happen with 2FA)
+        const maxAge = rememberMe ? 86400 * 30 : 86400;
         document.cookie = `admin_token=${data.token}; path=/; max-age=${maxAge}; samesite=lax`;
-        
-        // Debug: Log the token and cookie
-        console.log('Token received:', data.token);
-        console.log('Cookie set:', document.cookie);
-        
-        // Show success message
-        toast.success("Login successful! Redirecting to dashboard...");
-        
-        // Add a small delay to ensure cookie is properly set
+        toast.success("Login successful!");
         setTimeout(() => {
           window.location.href = '/';
         }, 500);
       } else {
         setError(data.error || 'Login failed');
         toast.error(data.error || 'Login failed');
+      }
+    } catch (error) {
+      setError('Network error. Please try again.');
+      toast.error('Network error. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleVerifyCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError("");
+
+    try {
+      const response = await fetch('/api/auth/verify-login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ adminId, code: verificationCode }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.requires2FASetup) {
+        // Redirect to 2FA setup
+        toast.success("Please complete 2FA setup");
+        router.push(`/verify?adminId=${data.adminId}&email=${encodeURIComponent(data.email)}`);
+      } else if (response.ok) {
+        // Login successful
+        const maxAge = rememberMe ? 86400 * 30 : 86400;
+        document.cookie = `admin_token=${data.token}; path=/; max-age=${maxAge}; samesite=lax`;
+        toast.success("Login successful!");
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 500);
+      } else {
+        setError(data.error || 'Verification failed');
+        toast.error(data.error || 'Verification failed');
       }
     } catch (error) {
       setError('Network error. Please try again.');
@@ -73,18 +112,25 @@ export default function Login() {
         <Card className="shadow-lg min-h-[600px]">
           <CardHeader className="text-center space-y-6 py-8">
             <div className="mx-auto h-16 w-16 rounded-full bg-primary flex items-center justify-center">
-              <Shield className="h-8 w-8 text-primary-foreground" />
+              {step === 'login' ? (
+                <Shield className="h-8 w-8 text-primary-foreground" />
+              ) : (
+                <KeyRound className="h-8 w-8 text-primary-foreground" />
+              )}
             </div>
             <div className="space-y-4">
               <h1 className="text-4xl font-bold text-blue-600">Home Solutions</h1>
               <p className="text-muted-foreground text-lg">
-                Sign in to access the admin panel
+                {step === 'login' 
+                  ? 'Sign in to access the admin panel'
+                  : 'Enter verification code'}
               </p>
             </div>
 
           </CardHeader>
           <CardContent className="px-8 pb-8">
-            <form onSubmit={handleLogin} className="space-y-8">
+            {step === 'login' ? (
+              <form onSubmit={handleLogin} className="space-y-8">
               {error && (
                 <Alert variant="destructive">
                   <AlertDescription>{error}</AlertDescription>
@@ -151,9 +197,57 @@ export default function Login() {
               >
                 {isLoading ? "Signing in..." : "Sign In"}
               </Button>
-
-
             </form>
+            ) : (
+              <form onSubmit={handleVerifyCode} className="space-y-8">
+                {error && (
+                  <Alert variant="destructive">
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+
+                <div className="space-y-2">
+                  <Label htmlFor="code">5-Digit Verification Code</Label>
+                  <div className="relative">
+                    <KeyRound className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="code"
+                      type="text"
+                      value={verificationCode}
+                      onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 5))}
+                      className="pl-10 text-center text-2xl tracking-widest"
+                      placeholder="00000"
+                      maxLength={5}
+                      required
+                    />
+                  </div>
+                  <p className="text-sm text-muted-foreground text-center">
+                    Check your email for the verification code
+                  </p>
+                </div>
+
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={isLoading || verificationCode.length !== 5}
+                >
+                  {isLoading ? "Verifying..." : "Verify Code"}
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full"
+                  onClick={() => {
+                    setStep('login');
+                    setVerificationCode('');
+                    setError('');
+                  }}
+                >
+                  Back to Login
+                </Button>
+              </form>
+            )}
           </CardContent>
         </Card>
       </div>
