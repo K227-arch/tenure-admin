@@ -139,7 +139,7 @@ export async function POST(request: Request) {
     expiresAt.setHours(expiresAt.getHours() + 24);
 
     await supabaseAdmin
-      .from('session')
+      .from('admin_sessions')
       .insert({
         admin_id: admin.id,
         session_token: sessionId,

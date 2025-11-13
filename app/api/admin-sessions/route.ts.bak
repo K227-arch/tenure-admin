@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     const activeOnly = searchParams.get('active_only') === 'true';
 
     let query = supabaseAdmin
-      .from('admin_sessions')
+      .from('session')
       .select('*')
       .order('created_at', { ascending: false });
 
@@ -82,7 +82,7 @@ export async function DELETE(request: NextRequest) {
 
     // Invalidate by setting expires_at to now
     const { error } = await supabaseAdmin
-      .from('admin_sessions')
+      .from('session')
       .update({ 
         expires_at: new Date().toISOString()
       })
