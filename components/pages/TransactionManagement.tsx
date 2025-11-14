@@ -490,6 +490,34 @@ export default function TransactionManagement() {
                 </div>
               </div>
 
+              {/* Provider IDs */}
+              <div className="space-y-4">
+                <h3 className="font-semibold text-lg border-b pb-2 flex items-center gap-2">
+                  <CreditCard className="h-5 w-5" />
+                  Provider Information
+                </h3>
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="bg-muted/50 p-3 rounded-lg">
+                    <p className="text-sm text-muted-foreground mb-1">Provider Payment ID</p>
+                    <p className="font-mono text-sm break-all">
+                      {selectedTransaction.provider_payment_id || 'N/A'}
+                    </p>
+                  </div>
+                  <div className="bg-muted/50 p-3 rounded-lg">
+                    <p className="text-sm text-muted-foreground mb-1">Provider Invoice ID</p>
+                    <p className="font-mono text-sm break-all">
+                      {selectedTransaction.provider_invoice_id || 'N/A'}
+                    </p>
+                  </div>
+                  <div className="bg-muted/50 p-3 rounded-lg">
+                    <p className="text-sm text-muted-foreground mb-1">Provider Charge ID</p>
+                    <p className="font-mono text-sm break-all">
+                      {selectedTransaction.provider_charge_id || 'N/A'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               {/* User Information */}
               <div className="space-y-4">
                 <h3 className="font-semibold text-lg border-b pb-2 flex items-center gap-2">

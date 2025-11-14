@@ -256,16 +256,20 @@ export default function SubscriptionManagement() {
     );
   }
 
-  const subscriptions = data?.subscriptions || [];
+  const allSubscriptions = data?.subscriptions || [];
   const pagination = data?.pagination || { page: 1, pages: 1, total: 0 };
 
-  // Calculate stats
+  // Separate subscriptions by billing cycle
+  const monthlySubscriptions = allSubscriptions.filter(s => s.billing_cycle === 'MONTHLY');
+  const yearlySubscriptions = allSubscriptions.filter(s => s.billing_cycle === 'YEARLY');
+
+  // Calculate stats from all subscriptions (not filtered)
   const stats = {
-    total: subscriptions.length,
-    active: subscriptions.filter(s => s.status === 'active').length,
-    canceled: subscriptions.filter(s => s.status === 'canceled').length,
-    pastDue: subscriptions.filter(s => s.status === 'past_due').length,
-    trialing: subscriptions.filter(s => s.status === 'trialing').length
+    total: allSubscriptions.length,
+    active: allSubscriptions.filter(s => s.status === 'active').length,
+    canceled: allSubscriptions.filter(s => s.status === 'canceled').length,
+    monthly: allSubscriptions.filter(s => s.billing_cycle === 'MONTHLY').length,
+    yearly: allSubscriptions.filter(s => s.billing_cycle === 'YEARLY').length
   };
 
   // Calculate real-time trend data from subscription creation dates
@@ -281,7 +285,7 @@ export default function SubscriptionManagement() {
     }
 
     // Count subscriptions by month
-    subscriptions.forEach(sub => {
+    allSubscriptions.forEach(sub => {
       const createdDate = new Date(sub.created_at);
       const monthKey = createdDate.toLocaleDateString('en-US', { month: 'short' });
       
@@ -308,7 +312,7 @@ export default function SubscriptionManagement() {
     }
 
     // Calculate revenue from active subscriptions using actual amounts
-    subscriptions.forEach(sub => {
+    allSubscriptions.forEach(sub => {
       if (sub.status === 'active' && sub.created_at) {
         const createdDate = new Date(sub.created_at);
         const monthKey = createdDate.toLocaleDateString('en-US', { month: 'short' });
@@ -372,18 +376,18 @@ export default function SubscriptionManagement() {
         </Card>
         <Card className="shadow-card">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Past Due</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Monthly</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-warning">{stats.pastDue}</div>
+            <div className="text-2xl font-bold text-primary">{stats.monthly}</div>
           </CardContent>
         </Card>
         <Card className="shadow-card">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Trialing</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Yearly</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-accent">{stats.trialing}</div>
+            <div className="text-2xl font-bold text-accent">{stats.yearly}</div>
           </CardContent>
         </Card>
       </div>
@@ -419,12 +423,12 @@ export default function SubscriptionManagement() {
           </CardContent>
         </Card>
 
-        {/* Status Distribution Pie Chart */}
+        {/* Subscription Distribution Pie Chart */}
         <Card className="shadow-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CreditCard className="h-5 w-5" />
-              Status Distribution
+              Subscription Distribution
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -434,8 +438,8 @@ export default function SubscriptionManagement() {
                   data={[
                     { name: 'Active', value: stats.active, color: 'hsl(var(--success))' },
                     { name: 'Canceled', value: stats.canceled, color: 'hsl(var(--destructive))' },
-                    { name: 'Past Due', value: stats.pastDue, color: 'hsl(var(--warning))' },
-                    { name: 'Trialing', value: stats.trialing, color: 'hsl(var(--primary))' },
+                    { name: 'Monthly', value: stats.monthly, color: 'hsl(var(--primary))' },
+                    { name: 'Yearly', value: stats.yearly, color: 'hsl(var(--accent))' },
                   ]}
                   cx="50%"
                   cy="50%"
@@ -448,8 +452,8 @@ export default function SubscriptionManagement() {
                   {[
                     { name: 'Active', value: stats.active, color: '#22c55e' },
                     { name: 'Canceled', value: stats.canceled, color: '#ef4444' },
-                    { name: 'Past Due', value: stats.pastDue, color: '#f59e0b' },
-                    { name: 'Trialing', value: stats.trialing, color: '#3b82f6' },
+                    { name: 'Monthly', value: stats.monthly, color: '#3b82f6' },
+                    { name: 'Yearly', value: stats.yearly, color: '#8b5cf6' },
                   ].map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
@@ -528,10 +532,13 @@ export default function SubscriptionManagement() {
         </CardContent>
       </Card>
 
-      {/* Subscriptions Table */}
+      {/* Monthly Subscriptions Table */}
       <Card className="shadow-card">
         <CardHeader>
-          <CardTitle>Subscriptions ({pagination.total})</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="h-5 w-5 text-primary" />
+            Monthly Subscriptions ({monthlySubscriptions.length})
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="rounded-md border">
@@ -540,7 +547,6 @@ export default function SubscriptionManagement() {
                 <TableRow>
                   <TableHead>User</TableHead>
                   <TableHead>Subscription ID</TableHead>
-                  <TableHead>Billing Cycle</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Next Billing Date</TableHead>
@@ -548,7 +554,7 @@ export default function SubscriptionManagement() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {subscriptions.length > 0 ? subscriptions.map((subscription) => (
+                {monthlySubscriptions.length > 0 ? monthlySubscriptions.map((subscription) => (
                   <TableRow key={subscription.id}>
                     <TableCell>
                       <div className="flex items-center space-x-3">
@@ -566,9 +572,6 @@ export default function SubscriptionManagement() {
                     </TableCell>
                     <TableCell className="font-mono text-sm">
                       {subscription.provider_subscription_id?.substring(0, 20) || 'N/A'}...
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{subscription.billing_cycle || 'N/A'}</Badge>
                     </TableCell>
                     <TableCell className="font-semibold">
                       {subscription.currency} {subscription.amount?.toFixed(2) || '0.00'}
@@ -589,44 +592,85 @@ export default function SubscriptionManagement() {
                   </TableRow>
                 )) : (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8">
-                      <p className="text-muted-foreground">No billing schedules found. Check your database connection.</p>
+                    <TableCell colSpan={6} className="text-center py-8">
+                      <p className="text-muted-foreground">No monthly subscriptions found.</p>
                     </TableCell>
                   </TableRow>
                 )}
               </TableBody>
             </Table>
           </div>
-          
-          {/* Pagination */}
-          {pagination.pages > 1 && (
-            <div className="flex items-center justify-between px-2 py-4">
-              <div className="text-sm text-muted-foreground">
-                Showing {((currentPage - 1) * 10) + 1} to {Math.min(currentPage * 10, pagination.total)} of {pagination.total} results
-              </div>
-              <div className="flex items-center space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                  disabled={currentPage === 1}
-                >
-                  Previous
-                </Button>
-                <div className="text-sm">
-                  Page {currentPage} of {pagination.pages}
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(Math.min(pagination.pages, currentPage + 1))}
-                  disabled={currentPage === pagination.pages}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          )}
+        </CardContent>
+      </Card>
+
+      {/* Yearly Subscriptions Table */}
+      <Card className="shadow-card">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="h-5 w-5 text-accent" />
+            Yearly Subscriptions ({yearlySubscriptions.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>User</TableHead>
+                  <TableHead>Subscription ID</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Next Billing Date</TableHead>
+                  <TableHead>Created</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {yearlySubscriptions.length > 0 ? yearlySubscriptions.map((subscription) => (
+                  <TableRow key={subscription.id}>
+                    <TableCell>
+                      <div className="flex items-center space-x-3">
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={subscription.users?.image} />
+                          <AvatarFallback>
+                            <User className="h-4 w-4" />
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <div className="font-medium">{subscription.users?.name || 'No Name'}</div>
+                          <div className="text-sm text-muted-foreground">{subscription.users?.email}</div>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-mono text-sm">
+                      {subscription.provider_subscription_id?.substring(0, 20) || 'N/A'}...
+                    </TableCell>
+                    <TableCell className="font-semibold">
+                      {subscription.currency} {subscription.amount?.toFixed(2) || '0.00'}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={getStatusColor(subscription.status)}>
+                        {subscription.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm flex items-center">
+                        <Calendar className="h-3 w-3 mr-1" />
+                        {subscription.current_period_end ? 
+                          new Date(subscription.current_period_end).toLocaleDateString() : 'N/A'}
+                      </div>
+                    </TableCell>
+                    <TableCell>{new Date(subscription.created_at).toLocaleDateString()}</TableCell>
+                  </TableRow>
+                )) : (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8">
+                      <p className="text-muted-foreground">No yearly subscriptions found.</p>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
 
