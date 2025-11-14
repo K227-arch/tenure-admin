@@ -24,8 +24,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Monitor, Smartphone, Tablet, Globe, Clock, XCircle, RefreshCw, Activity } from "lucide-react";
+import { Monitor, Smartphone, Tablet, Globe, Clock, XCircle, RefreshCw, Activity, LogIn, LogOut } from "lucide-react";
 import { toast } from "sonner";
+import { useAdminUser } from "@/hooks/useAdminUser";
 
 async function fetchSessions(activeOnly = false) {
   const params = new URLSearchParams();
@@ -55,6 +56,8 @@ async function cleanupSessions() {
 export default function SessionsManagement() {
   const [showActiveOnly, setShowActiveOnly] = useState(true);
   const queryClient = useQueryClient();
+  const { adminUser } = useAdminUser();
+  const isSuperAdmin = adminUser?.role === 'super_admin';
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['admin-sessions', showActiveOnly],
@@ -139,26 +142,28 @@ export default function SessionsManagement() {
 
   return (
     <div className="space-y-6">
-      {/* Actions */}
-      <div className="flex justify-end items-center">
-        <div className="flex gap-2">
-          <Button onClick={() => refetch()} variant="outline">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
-          </Button>
-          <Button onClick={() => cleanupMutation.mutate()} variant="outline">
-            <XCircle className="h-4 w-4 mr-2" />
-            Cleanup Expired
-          </Button>
-          <Button 
-            onClick={() => setShowActiveOnly(!showActiveOnly)}
-            variant={showActiveOnly ? "default" : "outline"}
-          >
-            <Activity className="h-4 w-4 mr-2" />
-            {showActiveOnly ? 'Show All' : 'Active Only'}
-          </Button>
+      {/* Actions - Only visible to Super Admin */}
+      {isSuperAdmin && (
+        <div className="flex justify-end items-center">
+          <div className="flex gap-2">
+            <Button onClick={() => refetch()} variant="outline">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+            <Button onClick={() => cleanupMutation.mutate()} variant="outline">
+              <XCircle className="h-4 w-4 mr-2" />
+              Cleanup Expired
+            </Button>
+            <Button 
+              onClick={() => setShowActiveOnly(!showActiveOnly)}
+              variant={showActiveOnly ? "default" : "outline"}
+            >
+              <Activity className="h-4 w-4 mr-2" />
+              {showActiveOnly ? 'Show All' : 'Active Only'}
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Stats */}
       <div className="grid gap-6 md:grid-cols-3">
@@ -204,10 +209,11 @@ export default function SessionsManagement() {
                   <TableHead>Admin</TableHead>
                   <TableHead>Device</TableHead>
                   <TableHead>IP Address</TableHead>
+                  <TableHead>Activity</TableHead>
                   <TableHead>Last Activity</TableHead>
                   <TableHead>Expires</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  {isSuperAdmin && <TableHead className="text-right">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -216,7 +222,10 @@ export default function SessionsManagement() {
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Globe className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium">{session.admin?.email || 'Unknown'}</span>
+                        <div>
+                          <div className="font-medium">{session.admin?.name || 'Unknown'}</div>
+                          <div className="text-sm text-muted-foreground">{session.admin?.email || 'N/A'}</div>
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -229,6 +238,24 @@ export default function SessionsManagement() {
                       <span className="font-mono text-sm">{session.ip_address}</span>
                     </TableCell>
                     <TableCell>
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-1 text-sm">
+                          <LogIn className="h-3 w-3 text-green-500" />
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(session.created_at).toLocaleString()}
+                          </span>
+                        </div>
+                        {session.logout_at && (
+                          <div className="flex items-center gap-1 text-sm">
+                            <LogOut className="h-3 w-3 text-orange-500" />
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(session.logout_at).toLocaleString()}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
                       <div className="flex items-center gap-2">
                         <Clock className="h-3 w-3 text-muted-foreground" />
                         <span className="text-sm">{getTimeAgo(session.last_activity)}</span>
@@ -239,41 +266,43 @@ export default function SessionsManagement() {
                     </TableCell>
                     <TableCell>
                       <Badge variant={session.is_active ? 'default' : 'secondary'}>
-                        {session.is_active ? 'Active' : 'Inactive'}
+                        {session.is_active ? 'Active' : session.logout_reason || 'Inactive'}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right">
-                      {session.is_active && (
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="sm">
-                              <XCircle className="h-4 w-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Invalidate Session?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                This will force logout the user from this session. They will need to log in again.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => invalidateMutation.mutate(session.id)}
-                                className="bg-destructive text-destructive-foreground"
-                              >
-                                Invalidate
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      )}
-                    </TableCell>
+                    {isSuperAdmin && (
+                      <TableCell className="text-right">
+                        {session.is_active && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                <XCircle className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Invalidate Session?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This will force logout the user from this session. They will need to log in again.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => invalidateMutation.mutate(session.id)}
+                                  className="bg-destructive text-destructive-foreground"
+                                >
+                                  Invalidate
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
+                      </TableCell>
+                    )}
                   </TableRow>
                 )) : (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8">
+                    <TableCell colSpan={isSuperAdmin ? 8 : 7} className="text-center py-8">
                       <p className="text-muted-foreground">No sessions found.</p>
                     </TableCell>
                   </TableRow>

@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { useActivityStream } from '@/hooks/useActivityStream';
+import { getActivityDescription } from '@/lib/utils/activity-logger';
 import { 
   Table, 
   TableBody, 
@@ -60,6 +62,9 @@ export default function AdminSessionLogs() {
   const [total, setTotal] = useState(0);
   const [limit] = useState(50);
   const [offset, setOffset] = useState(0);
+  
+  // Real-time activity stream
+  const { activities: realtimeActivities, isConnected } = useActivityStream();
 
   const fetchLogs = async () => {
     try {
@@ -110,6 +115,23 @@ export default function AdminSessionLogs() {
     fetchLogs();
     fetchStats();
   }, [filterAction, offset]);
+
+  // Merge real-time activities with fetched logs
+  useEffect(() => {
+    if (realtimeActivities.length > 0) {
+      setLogs((prevLogs) => {
+        const newActivities = realtimeActivities.filter(
+          (activity) => !prevLogs.some((log) => log.id === activity.id)
+        ).map(activity => ({
+          ...activity,
+          session_id: activity.session_id || null,
+          error_message: activity.error_message || null,
+        }));
+        return [...newActivities, ...prevLogs];
+      });
+      setTotal((prev) => prev + realtimeActivities.length);
+    }
+  }, [realtimeActivities]);
 
   const getActionIcon = (action: string) => {
     switch (action) {
@@ -240,8 +262,16 @@ export default function AdminSessionLogs() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Admin Activity Logs</CardTitle>
-              <CardDescription>Track all admin login and logout activities</CardDescription>
+              <div className="flex items-center gap-2">
+                <CardTitle>Admin Activity Logs</CardTitle>
+                {isConnected && (
+                  <Badge variant="outline" className="bg-green-50 text-green-700">
+                    <Activity className="h-3 w-3 mr-1" />
+                    Live
+                  </Badge>
+                )}
+              </div>
+              <CardDescription>Real-time tracking of all admin activities</CardDescription>
             </div>
             <div className="flex gap-2">
               <Button onClick={() => { fetchLogs(); fetchStats(); }} variant="outline" size="sm">
@@ -321,9 +351,14 @@ export default function AdminSessionLogs() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2">
-                          {getActionIcon(log.action)}
-                          {getActionBadge(log.action, log.success)}
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-2">
+                            {getActionIcon(log.action)}
+                            {getActionBadge(log.action, log.success)}
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {getActivityDescription(log.action, log.metadata)}
+                          </span>
                         </div>
                       </TableCell>
                       <TableCell>
