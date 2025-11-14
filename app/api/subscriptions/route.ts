@@ -11,9 +11,9 @@ export async function GET(request: Request) {
 
     const offset = (page - 1) * limit;
 
-    // Build query using user_subscriptions table
+    // Build query using user_billing_schedules table
     let query = supabaseAdmin
-      .from('user_subscriptions')
+      .from('user_billing_schedules')
       .select(`
         *,
         users!inner(
@@ -22,33 +22,49 @@ export async function GET(request: Request) {
           email,
           image
         )
-      `)
+      `, { count: 'exact' })
       .order('created_at', { ascending: false });
 
     // Apply filters
     if (status && status !== 'all') {
-      query = query.eq('status', status);
+      if (status === 'active') {
+        query = query.eq('is_active', true);
+      } else if (status === 'canceled') {
+        query = query.eq('is_active', false);
+      }
     }
 
     if (search) {
-      query = query.or(`users.name.ilike.%${search}%,users.email.ilike.%${search}%,stripe_subscription_id.ilike.%${search}%`);
+      query = query.or(`users.name.ilike.%${search}%,users.email.ilike.%${search}%,subscription_id.ilike.%${search}%`);
     }
 
-    // Get total count
-    const { count } = await supabaseAdmin
-      .from('user_subscriptions')
-      .select('*', { count: 'exact', head: true });
-
-    // Get paginated data
-    const { data: subscriptions, error } = await query
+    // Get paginated data with count
+    const { data: billingSchedules, error, count } = await query
       .range(offset, offset + limit - 1);
 
     if (error) {
       throw error;
     }
 
+    // Transform billing schedules to match subscription format
+    const subscriptions = (billingSchedules || []).map(schedule => ({
+      id: schedule.id,
+      user_id: schedule.user_id,
+      provider_subscription_id: schedule.subscription_id,
+      stripe_subscription_id: schedule.subscription_id,
+      provider: 'billing_schedule',
+      status: schedule.is_active ? 'active' : 'canceled',
+      current_period_start: schedule.created_at,
+      current_period_end: schedule.next_billing_date,
+      created_at: schedule.created_at,
+      users: schedule.users,
+      billing_cycle: schedule.billing_cycle,
+      amount: schedule.amount,
+      currency: schedule.currency
+    }));
+
     return NextResponse.json({
-      subscriptions: subscriptions || [],
+      subscriptions: subscriptions,
       pagination: {
         page,
         pages: Math.ceil((count || 0) / limit),

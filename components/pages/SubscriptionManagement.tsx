@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -126,6 +127,20 @@ export default function SubscriptionManagement() {
     refetchInterval: 30000, // Real-time updates every 30 seconds
   });
 
+  // Realtime: refresh subscriptions when user_billing_schedules changes
+  useEffect(() => {
+    const channel = supabase
+      .channel('realtime-billing-schedules')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_billing_schedules' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
   // Mutations
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: any }) => updateSubscription(id, data),
@@ -212,7 +227,7 @@ export default function SubscriptionManagement() {
       <div className="space-y-8">
         <div>
           <h1 className="text-4xl font-bold text-foreground mb-2">Subscription Management</h1>
-          <p className="text-muted-foreground">Loading real-time subscription data from Supabase...</p>
+          <p className="text-muted-foreground">Loading real-time billing schedules from user_billing_schedules table...</p>
         </div>
         <div className="grid gap-6 md:grid-cols-5">
           {[...Array(5)].map((_, i) => (
@@ -235,7 +250,7 @@ export default function SubscriptionManagement() {
       <div className="space-y-8">
         <div>
           <h1 className="text-4xl font-bold text-foreground mb-2">Subscription Management</h1>
-          <p className="text-muted-foreground text-red-500">Error loading subscriptions. Please check your database connection.</p>
+          <p className="text-muted-foreground text-red-500">Error loading billing schedules. Please check your database connection.</p>
         </div>
       </div>
     );
@@ -280,7 +295,7 @@ export default function SubscriptionManagement() {
     return Object.values(monthlyData);
   };
 
-  // Calculate real monthly revenue from subscriptions
+  // Calculate real monthly revenue from billing schedules
   const calculateMonthlyRevenue = () => {
     const monthlyRevenue: any = {};
     const now = new Date();
@@ -292,15 +307,15 @@ export default function SubscriptionManagement() {
       monthlyRevenue[monthKey] = { month: monthKey, revenue: 0 };
     }
 
-    // Calculate revenue from active subscriptions
+    // Calculate revenue from active subscriptions using actual amounts
     subscriptions.forEach(sub => {
-      if (sub.status === 'active' && sub.current_period_start) {
-        const periodStart = new Date(sub.current_period_start);
-        const monthKey = periodStart.toLocaleDateString('en-US', { month: 'short' });
+      if (sub.status === 'active' && sub.created_at) {
+        const createdDate = new Date(sub.created_at);
+        const monthKey = createdDate.toLocaleDateString('en-US', { month: 'short' });
         
         if (monthlyRevenue[monthKey]) {
-          // Estimate $29.99 per subscription (you can adjust this or get from actual data)
-          monthlyRevenue[monthKey].revenue += 29.99;
+          // Use actual amount from billing schedule
+          monthlyRevenue[monthKey].revenue += sub.amount || 0;
         }
       }
     });
@@ -320,7 +335,7 @@ export default function SubscriptionManagement() {
             Subscription Management
           </h1>
           <p className="text-muted-foreground">
-            Manage all user subscriptions and billing cycles.
+            Real-time billing schedules from user_billing_schedules table.
           </p>
         </div>
         <Button onClick={() => refetch()} variant="outline">
@@ -524,10 +539,11 @@ export default function SubscriptionManagement() {
               <TableHeader>
                 <TableRow>
                   <TableHead>User</TableHead>
-                  <TableHead>Provider ID</TableHead>
-                  <TableHead>Provider</TableHead>
+                  <TableHead>Subscription ID</TableHead>
+                  <TableHead>Billing Cycle</TableHead>
+                  <TableHead>Amount</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Current Period</TableHead>
+                  <TableHead>Next Billing Date</TableHead>
                   <TableHead>Created</TableHead>
                 </TableRow>
               </TableHeader>
@@ -549,10 +565,13 @@ export default function SubscriptionManagement() {
                       </div>
                     </TableCell>
                     <TableCell className="font-mono text-sm">
-                      {subscription.provider_subscription_id || subscription.stripe_subscription_id || 'N/A'}
+                      {subscription.provider_subscription_id?.substring(0, 20) || 'N/A'}...
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline">{subscription.provider || 'Manual'}</Badge>
+                      <Badge variant="outline">{subscription.billing_cycle || 'N/A'}</Badge>
+                    </TableCell>
+                    <TableCell className="font-semibold">
+                      {subscription.currency} {subscription.amount?.toFixed(2) || '0.00'}
                     </TableCell>
                     <TableCell>
                       <Badge variant={getStatusColor(subscription.status)}>
@@ -560,16 +579,10 @@ export default function SubscriptionManagement() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <div className="text-sm">
-                        <div className="flex items-center">
-                          <Calendar className="h-3 w-3 mr-1" />
-                          {subscription.current_period_start ? 
-                            new Date(subscription.current_period_start).toLocaleDateString() : 'N/A'}
-                        </div>
-                        <div className="text-muted-foreground">
-                          to {subscription.current_period_end ? 
-                            new Date(subscription.current_period_end).toLocaleDateString() : 'N/A'}
-                        </div>
+                      <div className="text-sm flex items-center">
+                        <Calendar className="h-3 w-3 mr-1" />
+                        {subscription.current_period_end ? 
+                          new Date(subscription.current_period_end).toLocaleDateString() : 'N/A'}
                       </div>
                     </TableCell>
                     <TableCell>{new Date(subscription.created_at).toLocaleDateString()}</TableCell>
@@ -577,7 +590,7 @@ export default function SubscriptionManagement() {
                 )) : (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-8">
-                      <p className="text-muted-foreground">No subscriptions found. Check your database connection or create a new subscription.</p>
+                      <p className="text-muted-foreground">No billing schedules found. Check your database connection.</p>
                     </TableCell>
                   </TableRow>
                 )}
