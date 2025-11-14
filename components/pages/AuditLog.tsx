@@ -35,7 +35,9 @@ async function fetchAuditLogs(page = 1, search = '', action = '') {
   
   const response = await fetch(`/api/audit-logs?${params}`);
   if (!response.ok) {
-    throw new Error('Failed to fetch audit logs');
+    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+    console.error('Audit logs API error:', response.status, errorData);
+    throw new Error(errorData.error || `Failed to fetch audit logs (${response.status})`);
   }
   return response.json();
 }
@@ -51,11 +53,11 @@ export default function AuditLog() {
     refetchInterval: 30000, // Real-time updates every 30 seconds
   });
 
-  // Realtime: refresh audit logs when user_audit_logs changes
+  // Realtime: refresh audit logs when session changes
   useEffect(() => {
     const channel = supabase
       .channel('realtime-audit-logs')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_audit_logs' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'session' }, () => {
         queryClient.invalidateQueries({ queryKey: ['audit-logs'] });
       })
       .subscribe();
@@ -86,7 +88,27 @@ export default function AuditLog() {
   if (error) {
     return (
       <div className="space-y-6">
-        <p className="text-muted-foreground text-red-500">Error loading audit logs. Please check your database connection.</p>
+        <Card className="shadow-card border-red-500">
+          <CardHeader>
+            <CardTitle className="text-red-500">Error Loading Audit Logs</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground mb-4">
+              {error instanceof Error ? error.message : 'Failed to load audit logs'}
+            </p>
+            <div className="space-y-2 text-sm">
+              <p className="font-semibold">Possible causes:</p>
+              <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                <li>You may need to log in again (session expired)</li>
+                <li>Database connection issue</li>
+                <li>Missing session table</li>
+              </ul>
+            </div>
+            <Button onClick={() => refetch()} className="mt-4">
+              Try Again
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -128,17 +150,9 @@ export default function AuditLog() {
                 <SelectValue placeholder="Filter by action" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Actions</SelectItem>
-                <SelectItem value="Member Sign-up">Member Sign-up</SelectItem>
-                <SelectItem value="Profile Updated">Profile Updated</SelectItem>
-                <SelectItem value="User Activity">User Activity</SelectItem>
-                <SelectItem value="Payment Received">Payment Received</SelectItem>
-                <SelectItem value="Payment Failed">Payment Failed</SelectItem>
-                <SelectItem value="Payment Pending">Payment Pending</SelectItem>
-                <SelectItem value="Subscription Updated">Subscription Updated</SelectItem>
-                <SelectItem value="login_attempt">Login Attempt</SelectItem>
-                <SelectItem value="signup_attempt">Signup Attempt</SelectItem>
-                <SelectItem value="error">Error</SelectItem>
+                <SelectItem value="all">All Sessions</SelectItem>
+                <SelectItem value="active">Active Sessions</SelectItem>
+                <SelectItem value="expired">Expired Sessions</SelectItem>
               </SelectContent>
             </Select>
             <Button onClick={handleRefresh} variant="outline">
@@ -153,50 +167,50 @@ export default function AuditLog() {
       <div className="grid gap-6 md:grid-cols-4">
         <Card className="shadow-card">
           <CardHeader>
-            <CardTitle className="text-sm">Total Events</CardTitle>
+            <CardTitle className="text-sm">Total Sessions</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">
-              {logs.length}
+              {pagination.total}
             </div>
           </CardContent>
         </Card>
         <Card className="shadow-card">
           <CardHeader>
-            <CardTitle className="text-sm">Success</CardTitle>
+            <CardTitle className="text-sm">Active</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-success">
-              {logs.filter((l) => l.status === "success").length}
+              {logs.filter((l) => l.action === "Session Created").length}
             </div>
           </CardContent>
         </Card>
         <Card className="shadow-card">
           <CardHeader>
-            <CardTitle className="text-sm">Warnings</CardTitle>
+            <CardTitle className="text-sm">Expired</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-warning">
-              {logs.filter((l) => l.status === "warning").length}
+              {logs.filter((l) => l.action === "Session Expired").length}
             </div>
           </CardContent>
         </Card>
         <Card className="shadow-card">
           <CardHeader>
-            <CardTitle className="text-sm">Info</CardTitle>
+            <CardTitle className="text-sm">Ended</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-accent">
-              {logs.filter((l) => l.status === "info").length}
+              {logs.filter((l) => l.action === "Session Ended").length}
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Audit Log Table */}
+      {/* Session Log Table */}
       <Card className="shadow-card">
         <CardHeader>
-          <CardTitle>Event Log ({pagination.total})</CardTitle>
+          <CardTitle>Session Activity ({pagination.total})</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="rounded-md border">
@@ -216,7 +230,14 @@ export default function AuditLog() {
                     <TableCell className="font-mono text-sm">
                       {new Date(log.timestamp).toLocaleString()}
                     </TableCell>
-                    <TableCell className="font-medium">{log.user}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-col">
+                        <span className="font-medium">{log.user}</span>
+                        {log.user_email && (
+                          <span className="text-xs text-muted-foreground">{log.user_email}</span>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <Badge variant="outline">{log.action}</Badge>
                     </TableCell>
@@ -232,7 +253,7 @@ export default function AuditLog() {
                 )) : (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center py-8">
-                      <p className="text-muted-foreground">No audit logs found.</p>
+                      <p className="text-muted-foreground">No sessions found.</p>
                     </TableCell>
                   </TableRow>
                 )}

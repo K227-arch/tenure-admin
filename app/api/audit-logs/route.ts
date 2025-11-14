@@ -1,176 +1,129 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase/admin';
+import { createClient } from '@supabase/supabase-js';
+import { verify } from 'jsonwebtoken';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
 export async function GET(request: Request) {
   try {
+    // Verify admin authentication
+    const cookieHeader = request.headers.get('cookie');
+    const tokenMatch = cookieHeader?.match(/admin_token=([^;]+)/);
+    const token = tokenMatch?.[1];
+
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    try {
+      verify(token, JWT_SECRET);
+    } catch {
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    }
+
+    // Get query parameters
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '50');
-    const action = searchParams.get('action');
-    const search = searchParams.get('search');
+    const search = searchParams.get('search') || '';
+    const action = searchParams.get('action') || '';
 
     const offset = (page - 1) * limit;
 
-    // Get recent user activities
-    const { data: userActivities } = await supabaseAdmin
-      .from('users')
-      .select('id, name, email, created_at, updated_at, status, last_active')
-      .order('updated_at', { ascending: false })
-      .limit(20);
-
-  // Get recent user audit logs
-  const { data: userAuditLogs } = await supabaseAdmin
-    .from('user_audit_logs')
-    .select(`
-      id,
-      user_id,
-      entity_type,
-      entity_id,
-      action,
-      success,
-      error_message,
-      metadata,
-      user_agent,
-      created_at
-    `)
-    .order('created_at', { ascending: false })
-    .limit(100);
-
-    // Get recent transactions
-    const { data: recentTransactions } = await supabaseAdmin
-      .from('transactions')
-      .select(`
-        *,
-        users(name, email)
-      `)
+    // Build query from session table
+    let query = supabaseAdmin
+      .from('session')
+      .select('*', { count: 'exact' })
       .order('created_at', { ascending: false })
-      .limit(20);
-
-    // Get recent subscriptions
-    const { data: recentSubscriptions } = await supabaseAdmin
-      .from('subscriptions')
-      .select(`
-        *,
-        users(name, email)
-      `)
-      .order('updated_at', { ascending: false })
-      .limit(10);
-
-    // Combine and format audit logs
-    const auditLogs = [];
-
-    // User activities
-    userActivities?.forEach(user => {
-      if (user.created_at === user.updated_at) {
-        auditLogs.push({
-          id: `user-signup-${user.id}`,
-          timestamp: user.created_at,
-          user: user.name || user.email,
-          action: 'Member Sign-up',
-          details: `New member registration completed`,
-          status: 'success',
-          type: 'user'
-        });
-      } else {
-        auditLogs.push({
-          id: `user-update-${user.id}`,
-          timestamp: user.updated_at,
-          user: user.name || user.email,
-          action: 'Profile Updated',
-          details: `Member profile information updated`,
-          status: user.status === 'suspended' ? 'warning' : 'success',
-          type: 'user'
-        });
-      }
-
-      if (user.last_active) {
-        auditLogs.push({
-          id: `user-activity-${user.id}`,
-          timestamp: user.last_active,
-          user: user.name || user.email,
-          action: 'User Activity',
-          details: `Member last seen`,
-          status: 'info',
-          type: 'activity'
-        });
-      }
-    });
-
-    // Transaction activities
-    recentTransactions?.forEach(transaction => {
-      auditLogs.push({
-        id: `transaction-${transaction.id}`,
-        timestamp: transaction.created_at,
-        user: transaction.users?.name || transaction.users?.email || 'Unknown',
-        action: transaction.status === 'completed' ? 'Payment Received' : 
-                transaction.status === 'failed' ? 'Payment Failed' : 'Payment Pending',
-        details: `${transaction.type} of ${transaction.currency} ${transaction.amount} - ${transaction.description || 'No description'}`,
-        status: transaction.status === 'completed' ? 'success' : 
-               transaction.status === 'failed' ? 'warning' : 'info',
-        type: 'transaction'
-      });
-    });
-
-  // User audit log activities
-  userAuditLogs?.forEach((log) => {
-    auditLogs.push({
-      id: `user-audit-${log.id}`,
-      timestamp: log.created_at,
-      user: log.user_agent || log.user_id || 'Unknown',
-      action: log.action,
-      details: `${log.entity_type || 'entity'} ${log.entity_id || ''}`.trim(),
-      status: log.success === false ? 'warning' : 'success',
-      type: 'user_audit'
-    });
-  });
-
-    // Subscription activities
-    recentSubscriptions?.forEach(subscription => {
-      auditLogs.push({
-        id: `subscription-${subscription.id}`,
-        timestamp: subscription.updated_at,
-        user: subscription.users?.name || subscription.users?.email || 'Unknown',
-        action: 'Subscription Updated',
-        details: `Subscription status changed to ${subscription.status}`,
-        status: subscription.status === 'active' ? 'success' : 'warning',
-        type: 'subscription'
-      });
-    });
-
-    // Sort by timestamp
-    auditLogs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-
-    // Apply filters
-    let filteredLogs = auditLogs;
-    
-    if (action && action !== 'all') {
-      filteredLogs = filteredLogs.filter(log => log.action === action);
-    }
+      .range(offset, offset + limit - 1);
 
     if (search) {
-      filteredLogs = filteredLogs.filter(log => 
-        log.user.toLowerCase().includes(search.toLowerCase()) ||
-        log.action.toLowerCase().includes(search.toLowerCase()) ||
-        log.details.toLowerCase().includes(search.toLowerCase())
-      );
+      query = query.or(`ip_address.ilike.%${search}%,user_agent.ilike.%${search}%`);
     }
 
-    // Paginate
-    const paginatedLogs = filteredLogs.slice(offset, offset + limit);
+    if (action && action !== 'all') {
+      if (action === 'active') {
+        query = query.gte('expires_at', new Date().toISOString());
+      } else if (action === 'expired') {
+        query = query.lt('expires_at', new Date().toISOString());
+      }
+    }
+
+    const { data: sessions, error, count } = await query;
+
+    if (error) {
+      console.error('Error fetching sessions:', error);
+      return NextResponse.json({ 
+        error: 'Failed to fetch logs', 
+        details: error.message,
+        hint: error.hint 
+      }, { status: 500 });
+    }
+
+    // Fetch user details for each session
+    const transformedLogs = await Promise.all(
+      (sessions || []).map(async (session) => {
+        // Fetch user details from users table using user_id
+        let userName = 'Unknown User';
+        let userEmail = '';
+        
+        if (session.user_id) {
+          const { data: user } = await supabaseAdmin
+            .from('users')
+            .select('name, email')
+            .eq('id', session.user_id)
+            .single();
+          
+          if (user) {
+            userName = user.name || user.email || 'Unknown User';
+            userEmail = user.email || '';
+          }
+        }
+
+        // Determine action based on session state
+        let action = 'Session Created';
+        let status = 'success';
+        
+        const now = new Date();
+        const expiresAt = new Date(session.expires_at);
+        
+        if (expiresAt < now) {
+          action = 'Session Expired';
+          status = 'warning';
+        }
+
+        // Build details
+        const details = `IP: ${session.ip_address || 'N/A'} | Expires: ${expiresAt.toLocaleString()}`;
+
+        return {
+          id: session.id,
+          timestamp: session.created_at,
+          user: userName,
+          user_email: userEmail,
+          action: action,
+          details: details,
+          status: status,
+        };
+      })
+    );
 
     return NextResponse.json({
-      logs: paginatedLogs,
+      logs: transformedLogs,
       pagination: {
         page,
-        pages: Math.ceil(filteredLogs.length / limit),
-        total: filteredLogs.length,
-        limit
-      }
+        pages: Math.ceil((count || 0) / limit),
+        total: count || 0,
+        limit,
+      },
     });
   } catch (error) {
-    console.error('Error fetching audit logs:', error);
+    console.error('Error in audit logs:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch audit logs' },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }
