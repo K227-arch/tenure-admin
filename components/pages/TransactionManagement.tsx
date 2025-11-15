@@ -315,7 +315,7 @@ export default function TransactionManagement() {
                   <TableHead>Type</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Description</TableHead>
+                  <TableHead>Provider</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
@@ -370,9 +370,9 @@ export default function TransactionManagement() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <span className="text-sm">
-                        {transaction.description || 'No description'}
-                      </span>
+                      <Badge variant="outline" className="capitalize">
+                        {transaction.provider || 'manual'}
+                      </Badge>
                     </TableCell>
                     <TableCell>
                       <div className="text-sm">
