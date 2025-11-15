@@ -1,6 +1,9 @@
 # Instant Real-Time Filtering
 
-## Subscription Page - INSTANT FILTERING ⚡
+## Pages with INSTANT FILTERING ⚡
+
+### 1. Subscription Management
+### 2. User Management
 
 ### How It Works:
 1. **Fetch once**: Load all subscriptions from API
@@ -52,17 +55,18 @@ const paginatedSubscriptions = allSubscriptions.slice(offset, offset + limit);
 
 ## Other Pages (Debounced - Still Fast):
 
-### User Management, Transactions, Audit Logs:
+### Transactions, Audit Logs:
 - **300ms debounce** - Wait for user to stop typing
 - **Fewer API calls** - Better for large datasets
 - **Still very fast** - Feels instant to users
 
 ## Best of Both Worlds:
 
-**Subscription Page**: 
-- Smaller dataset → Client-side filtering (instant)
+**Subscription & User Management Pages**: 
+- Moderate datasets → Client-side filtering (instant)
+- Search as you type with zero delay
 
-**Other Pages**: 
+**Transaction & Audit Log Pages**: 
 - Larger datasets → Debounced API calls (still fast, more efficient)
 
 All pages now feel snappy and responsive with no jarring page refreshes!

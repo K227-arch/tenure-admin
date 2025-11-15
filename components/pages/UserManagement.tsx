@@ -91,19 +91,9 @@ async function deleteUser(id: string) {
 
 export default function UserManagement() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [roleFilter, setRoleFilter] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-
-  // Debounce search term for better performance
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchTerm(searchTerm);
-    }, 300); // 300ms delay
-
-    return () => clearTimeout(timer);
-  }, [searchTerm]);
   
 // Dialog states
 const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -122,11 +112,12 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   const queryClient = useQueryClient();
 
-  const { data, isLoading, isFetching, error, refetch } = useQuery({
-    queryKey: ['users', currentPage, debouncedSearchTerm, statusFilter, roleFilter],
-    queryFn: () => fetchUsers(currentPage, debouncedSearchTerm, statusFilter, roleFilter),
+  // Fetch all users once, filter on client side for instant results
+  const { data: allData, isLoading, isFetching, error, refetch } = useQuery({
+    queryKey: ['users-all', statusFilter, roleFilter], // Only refetch when filters change
+    queryFn: () => fetchUsers(1, '', statusFilter, roleFilter), // Fetch without search
     refetchInterval: 30000, // Refetch every 30 seconds for real-time updates
-    staleTime: 5000, // Consider data fresh for 5 seconds
+    staleTime: 10000, // Consider data fresh for 10 seconds
   });
 
   // Realtime: refresh when users table changes
@@ -224,7 +215,7 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   };
 
   // Only show full loading on initial load
-  if (isLoading && !data) {
+  if (isLoading && !allData) {
     return (
       <div className="space-y-8">
         <div>
@@ -246,8 +237,27 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     );
   }
 
-  const users = data?.users || [];
-  const pagination = data?.pagination || { page: 1, pages: 1, total: 0 };
+  // Get all users and filter client-side for instant results
+  let allUsers = allData?.users || [];
+  
+  // Apply search filter instantly on client side
+  if (searchTerm) {
+    const searchLower = searchTerm.toLowerCase();
+    allUsers = allUsers.filter(user =>
+      user.name?.toLowerCase().includes(searchLower) ||
+      user.email?.toLowerCase().includes(searchLower) ||
+      user.id?.toLowerCase().includes(searchLower)
+    );
+  }
+
+  // Client-side pagination
+  const limit = 10;
+  const total = allUsers.length;
+  const pages = Math.ceil(total / limit);
+  const offset = (currentPage - 1) * limit;
+  const users = allUsers.slice(offset, offset + limit);
+
+  const pagination = { page: currentPage, pages, total, limit };
 
   return (
     <div className="space-y-8">
