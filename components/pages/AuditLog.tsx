@@ -43,14 +43,24 @@ async function fetchAuditLogs(page = 1, search = '', action = '') {
 }
 export default function AuditLog() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [actionFilter, setActionFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const queryClient = useQueryClient();
 
-  const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['audit-logs', currentPage, searchTerm, actionFilter],
-    queryFn: () => fetchAuditLogs(currentPage, searchTerm, actionFilter),
+  // Debounce search term
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  const { data, isLoading, isFetching, error, refetch } = useQuery({
+    queryKey: ['audit-logs', currentPage, debouncedSearchTerm, actionFilter],
+    queryFn: () => fetchAuditLogs(currentPage, debouncedSearchTerm, actionFilter),
     refetchInterval: 30000, // Real-time updates every 30 seconds
+    staleTime: 5000,
   });
 
   // Realtime: refresh audit logs when session changes
@@ -77,7 +87,7 @@ export default function AuditLog() {
     toast.success("Audit logs refreshed!");
   };
 
-  if (isLoading) {
+  if (isLoading && !data) {
     return (
       <div className="space-y-6">
         <p className="text-muted-foreground">Loading audit logs from database...</p>
@@ -141,6 +151,7 @@ export default function AuditLog() {
                 placeholder="Search logs..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
                 className="pl-10"
               />
             </div>

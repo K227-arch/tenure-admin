@@ -34,20 +34,18 @@ export async function GET(request: Request) {
       }
     }
 
-    if (search) {
-      query = query.or(`users.name.ilike.%${search}%,users.email.ilike.%${search}%,subscription_id.ilike.%${search}%`);
-    }
+    // Note: Search filtering will be done after fetching due to joined table limitations
+    // Supabase doesn't support .or() with nested relations in the same query
 
-    // Get paginated data with count
-    const { data: billingSchedules, error, count } = await query
-      .range(offset, offset + limit - 1);
+    // Get all data first (we'll filter after due to join limitations)
+    const { data: billingSchedules, error } = await query;
 
     if (error) {
       throw error;
     }
 
     // Transform billing schedules to match subscription format
-    const subscriptions = (billingSchedules || []).map(schedule => ({
+    let subscriptions = (billingSchedules || []).map(schedule => ({
       id: schedule.id,
       user_id: schedule.user_id,
       provider_subscription_id: schedule.subscription_id,
@@ -63,12 +61,28 @@ export async function GET(request: Request) {
       currency: schedule.currency
     }));
 
+    // Apply search filter after transformation
+    if (search) {
+      const searchLower = search.toLowerCase();
+      subscriptions = subscriptions.filter(sub => 
+        sub.users?.name?.toLowerCase().includes(searchLower) ||
+        sub.users?.email?.toLowerCase().includes(searchLower) ||
+        sub.provider_subscription_id?.toLowerCase().includes(searchLower)
+      );
+    }
+
+    // Calculate total before pagination
+    const total = subscriptions.length;
+
+    // Apply pagination
+    const paginatedSubscriptions = subscriptions.slice(offset, offset + limit);
+
     return NextResponse.json({
-      subscriptions: subscriptions,
+      subscriptions: paginatedSubscriptions,
       pagination: {
         page,
-        pages: Math.ceil((count || 0) / limit),
-        total: count || 0,
+        pages: Math.ceil(total / limit),
+        total: total,
         limit
       }
     });

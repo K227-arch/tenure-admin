@@ -121,10 +121,12 @@ export default function SubscriptionManagement() {
 
   const queryClient = useQueryClient();
 
-  const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['subscriptions', currentPage, searchTerm, statusFilter],
-    queryFn: () => fetchSubscriptions(currentPage, searchTerm, statusFilter),
+  // Fetch all subscriptions once, filter on client side for instant results
+  const { data: allData, isLoading, isFetching, error, refetch } = useQuery({
+    queryKey: ['subscriptions-all', statusFilter], // Only refetch when status filter changes
+    queryFn: () => fetchSubscriptions(1, '', statusFilter), // Fetch without search, we'll filter client-side
     refetchInterval: 30000, // Real-time updates every 30 seconds
+    staleTime: 10000, // Keep data fresh for 10 seconds
   });
 
   // Realtime: refresh subscriptions when user_billing_schedules changes
@@ -222,7 +224,8 @@ export default function SubscriptionManagement() {
     }
   };
 
-  if (isLoading) {
+  // Only show full loading state on initial load (no data yet)
+  if (isLoading && !allData) {
     return (
       <div className="space-y-8">
         <div>
@@ -256,10 +259,29 @@ export default function SubscriptionManagement() {
     );
   }
 
-  const allSubscriptions = data?.subscriptions || [];
-  const pagination = data?.pagination || { page: 1, pages: 1, total: 0 };
+  // Get all subscriptions and filter client-side for instant results
+  let allSubscriptions = allData?.subscriptions || [];
+  
+  // Apply search filter instantly on client side
+  if (searchTerm) {
+    const searchLower = searchTerm.toLowerCase();
+    allSubscriptions = allSubscriptions.filter(sub =>
+      sub.users?.name?.toLowerCase().includes(searchLower) ||
+      sub.users?.email?.toLowerCase().includes(searchLower) ||
+      sub.provider_subscription_id?.toLowerCase().includes(searchLower)
+    );
+  }
 
-  // Separate subscriptions by billing cycle
+  // Client-side pagination
+  const limit = 10;
+  const total = allSubscriptions.length;
+  const pages = Math.ceil(total / limit);
+  const offset = (currentPage - 1) * limit;
+  const paginatedSubscriptions = allSubscriptions.slice(offset, offset + limit);
+
+  const pagination = { page: currentPage, pages, total, limit };
+
+  // Separate subscriptions by billing cycle (from filtered results)
   const monthlySubscriptions = allSubscriptions.filter(s => s.billing_cycle === 'MONTHLY');
   const yearlySubscriptions = allSubscriptions.filter(s => s.billing_cycle === 'YEARLY');
 
@@ -335,16 +357,19 @@ export default function SubscriptionManagement() {
       {/* Header */}
       <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-4xl font-bold text-foreground mb-2">
+          <h1 className="text-4xl font-bold text-foreground mb-2 flex items-center gap-3">
             Subscription Management
+            {isFetching && (
+              <RefreshCw className="h-5 w-5 animate-spin text-primary" />
+            )}
           </h1>
           <p className="text-muted-foreground">
             Real-time billing schedules from user_billing_schedules table.
           </p>
         </div>
-        <Button onClick={() => refetch()} variant="outline">
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Refresh
+        <Button onClick={() => refetch()} variant="outline" disabled={isFetching}>
+          <RefreshCw className={`h-4 w-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
+          {isFetching ? 'Refreshing...' : 'Refresh'}
         </Button>
       </div>
 
@@ -509,6 +534,7 @@ export default function SubscriptionManagement() {
                 placeholder="Search by user name, email, or Stripe ID..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
                 className="pl-10"
               />
             </div>

@@ -43,7 +43,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Search, Filter, Eye, Mail, Phone, User, Clock, Download, FileText } from "lucide-react";
+import { Search, Filter, Eye, Mail, Phone, User, Clock, Download, FileText, RefreshCw } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase/client";
@@ -91,9 +91,19 @@ async function deleteUser(id: string) {
 
 export default function UserManagement() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [roleFilter, setRoleFilter] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Debounce search term for better performance
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300); // 300ms delay
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
   
 // Dialog states
 const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -112,10 +122,11 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   const queryClient = useQueryClient();
 
-  const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['users', currentPage, searchTerm, statusFilter, roleFilter],
-    queryFn: () => fetchUsers(currentPage, searchTerm, statusFilter, roleFilter),
+  const { data, isLoading, isFetching, error, refetch } = useQuery({
+    queryKey: ['users', currentPage, debouncedSearchTerm, statusFilter, roleFilter],
+    queryFn: () => fetchUsers(currentPage, debouncedSearchTerm, statusFilter, roleFilter),
     refetchInterval: 30000, // Refetch every 30 seconds for real-time updates
+    staleTime: 5000, // Consider data fresh for 5 seconds
   });
 
   // Realtime: refresh when users table changes
@@ -212,7 +223,8 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     deleteMutation.mutate(userId);
   };
 
-  if (isLoading) {
+  // Only show full loading on initial load
+  if (isLoading && !data) {
     return (
       <div className="space-y-8">
         <div>
@@ -242,8 +254,11 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
       {/* Header */}
       <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-4xl font-bold text-foreground mb-2">
+          <h1 className="text-4xl font-bold text-foreground mb-2 flex items-center gap-3">
             User Management
+            {isFetching && (
+              <RefreshCw className="h-5 w-5 animate-spin text-primary" />
+            )}
           </h1>
           <p className="text-muted-foreground">
             View and manage all members in your system.
@@ -284,6 +299,7 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
                 placeholder="Search by name, email, or ID..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
                 className="pl-10"
               />
             </div>

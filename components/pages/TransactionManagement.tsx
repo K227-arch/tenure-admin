@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -84,10 +84,21 @@ export default function TransactionManagement() {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [billingSchedules, setBillingSchedules] = useState<any[]>([]);
 
-  const { data: transactionData, isLoading, error, refetch } = useQuery({
-    queryKey: ['transactions', currentPage, searchTerm, statusFilter, typeFilter],
-    queryFn: () => fetchTransactions(currentPage, searchTerm, statusFilter, typeFilter),
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
+
+  // Debounce search term
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  const { data: transactionData, isLoading, isFetching, error, refetch } = useQuery({
+    queryKey: ['transactions', currentPage, debouncedSearchTerm, statusFilter, typeFilter],
+    queryFn: () => fetchTransactions(currentPage, debouncedSearchTerm, statusFilter, typeFilter),
     refetchInterval: 30000, // Refetch every 30 seconds for real-time updates
+    staleTime: 5000,
   });
 
   const { data: statsData } = useQuery({
@@ -129,7 +140,7 @@ export default function TransactionManagement() {
     }
   };
 
-  if (isLoading) {
+  if (isLoading && !transactionData) {
     return (
       <div className="space-y-8">
         <div>
@@ -196,8 +207,11 @@ export default function TransactionManagement() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-bold text-foreground mb-2">
+          <h1 className="text-4xl font-bold text-foreground mb-2 flex items-center gap-3">
             Transaction Management
+            {isFetching && (
+              <RefreshCw className="h-5 w-5 animate-spin text-primary" />
+            )}
           </h1>
           <p className="text-muted-foreground">
             Monitor and manage all financial transactions in real-time.
