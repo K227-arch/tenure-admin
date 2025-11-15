@@ -4,6 +4,7 @@
 
 ### 1. Subscription Management
 ### 2. User Management
+### 3. Transaction Management
 
 ### How It Works:
 1. **Fetch once**: Load all subscriptions from API
@@ -55,18 +56,19 @@ const paginatedSubscriptions = allSubscriptions.slice(offset, offset + limit);
 
 ## Other Pages (Debounced - Still Fast):
 
-### Transactions, Audit Logs:
+### Audit Logs:
 - **300ms debounce** - Wait for user to stop typing
 - **Fewer API calls** - Better for large datasets
 - **Still very fast** - Feels instant to users
 
 ## Best of Both Worlds:
 
-**Subscription & User Management Pages**: 
+**Subscription, User Management & Transaction Pages**: 
 - Moderate datasets → Client-side filtering (instant)
 - Search as you type with zero delay
+- Stats update in real-time
 
-**Transaction & Audit Log Pages**: 
+**Audit Log Page**: 
 - Larger datasets → Debounced API calls (still fast, more efficient)
 
 All pages now feel snappy and responsive with no jarring page refreshes!

@@ -84,21 +84,12 @@ export default function TransactionManagement() {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [billingSchedules, setBillingSchedules] = useState<any[]>([]);
 
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
-
-  // Debounce search term
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchTerm(searchTerm);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchTerm]);
-
-  const { data: transactionData, isLoading, isFetching, error, refetch } = useQuery({
-    queryKey: ['transactions', currentPage, debouncedSearchTerm, statusFilter, typeFilter],
-    queryFn: () => fetchTransactions(currentPage, debouncedSearchTerm, statusFilter, typeFilter),
+  // Fetch all transactions once, filter on client side for instant results
+  const { data: allTransactionData, isLoading, isFetching, error, refetch } = useQuery({
+    queryKey: ['transactions-all', statusFilter, typeFilter], // Only refetch when filters change
+    queryFn: () => fetchTransactions(1, '', statusFilter, typeFilter), // Fetch without search
     refetchInterval: 30000, // Refetch every 30 seconds for real-time updates
-    staleTime: 5000,
+    staleTime: 10000,
   });
 
   const { data: statsData } = useQuery({
@@ -140,7 +131,7 @@ export default function TransactionManagement() {
     }
   };
 
-  if (isLoading && !transactionData) {
+  if (isLoading && !allTransactionData) {
     return (
       <div className="space-y-8">
         <div>
@@ -162,19 +153,39 @@ export default function TransactionManagement() {
     );
   }
 
-  const transactions = transactionData?.transactions || [];
-  const pagination = transactionData?.pagination || { page: 1, pages: 1, total: 0 };
+  // Get all transactions and filter client-side for instant results
+  let allTransactions = allTransactionData?.transactions || [];
   
-  // Calculate stats from current data
-  const totalAmount = transactions.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
-  const completedTransactions = transactions.filter(t => t.status === 'completed').length;
-  const pendingTransactions = transactions.filter(t => t.status === 'pending').length;
-  const failedTransactions = transactions.filter(t => t.status === 'failed').length;
+  // Apply search filter instantly on client side
+  if (searchTerm) {
+    const searchLower = searchTerm.toLowerCase();
+    allTransactions = allTransactions.filter(transaction =>
+      transaction.users?.name?.toLowerCase().includes(searchLower) ||
+      transaction.users?.email?.toLowerCase().includes(searchLower) ||
+      transaction.id?.toLowerCase().includes(searchLower) ||
+      transaction.description?.toLowerCase().includes(searchLower)
+    );
+  }
+
+  // Client-side pagination
+  const limit = 20;
+  const total = allTransactions.length;
+  const pages = Math.ceil(total / limit);
+  const offset = (currentPage - 1) * limit;
+  const transactions = allTransactions.slice(offset, offset + limit);
+
+  const pagination = { page: currentPage, pages, total, limit };
+  
+  // Calculate stats from filtered data (updates in real-time as you search)
+  const totalAmount = allTransactions.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+  const completedTransactions = allTransactions.filter(t => t.status === 'completed').length;
+  const pendingTransactions = allTransactions.filter(t => t.status === 'pending').length;
+  const failedTransactions = allTransactions.filter(t => t.status === 'failed').length;
 
   const stats = [
     {
       title: "Total Transactions",
-      value: pagination.total.toLocaleString(),
+      value: total.toLocaleString(),
       change: `${transactions.length} on this page`,
       trend: "up",
       icon: DollarSign,
