@@ -43,24 +43,16 @@ async function fetchAuditLogs(page = 1, search = '', action = '') {
 }
 export default function AuditLog() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [actionFilter, setActionFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const queryClient = useQueryClient();
 
-  // Debounce search term
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchTerm(searchTerm);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchTerm]);
-
-  const { data, isLoading, isFetching, error, refetch } = useQuery({
-    queryKey: ['audit-logs', currentPage, debouncedSearchTerm, actionFilter],
-    queryFn: () => fetchAuditLogs(currentPage, debouncedSearchTerm, actionFilter),
+  // Fetch all audit logs once, filter on client side for instant results
+  const { data: allData, isLoading, isFetching, error, refetch } = useQuery({
+    queryKey: ['audit-logs-all', actionFilter], // Only refetch when action filter changes
+    queryFn: () => fetchAuditLogs(1, '', actionFilter), // Fetch without search
     refetchInterval: 30000, // Real-time updates every 30 seconds
-    staleTime: 5000,
+    staleTime: 10000,
   });
 
   // Realtime: refresh audit logs when session changes
@@ -87,7 +79,7 @@ export default function AuditLog() {
     toast.success("Audit logs refreshed!");
   };
 
-  if (isLoading && !data) {
+  if (isLoading && !allData) {
     return (
       <div className="space-y-6">
         <p className="text-muted-foreground">Loading audit logs from database...</p>
@@ -123,8 +115,28 @@ export default function AuditLog() {
     );
   }
 
-  const logs = data?.logs || [];
-  const pagination = data?.pagination || { page: 1, pages: 1, total: 0 };
+  // Get all logs and filter client-side for instant results
+  let allLogs = allData?.logs || [];
+  
+  // Apply search filter instantly on client side
+  if (searchTerm) {
+    const searchLower = searchTerm.toLowerCase();
+    allLogs = allLogs.filter(log =>
+      log.user?.toLowerCase().includes(searchLower) ||
+      log.user_email?.toLowerCase().includes(searchLower) ||
+      log.action?.toLowerCase().includes(searchLower) ||
+      log.details?.toLowerCase().includes(searchLower)
+    );
+  }
+
+  // Client-side pagination
+  const limit = 50;
+  const total = allLogs.length;
+  const pages = Math.ceil(total / limit);
+  const offset = (currentPage - 1) * limit;
+  const logs = allLogs.slice(offset, offset + limit);
+
+  const pagination = { page: currentPage, pages, total, limit };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -221,7 +233,12 @@ export default function AuditLog() {
       {/* Session Log Table */}
       <Card className="shadow-card">
         <CardHeader>
-          <CardTitle>Session Activity ({pagination.total})</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            Session Activity ({pagination.total})
+            {isFetching && (
+              <RefreshCw className="h-4 w-4 animate-spin text-primary" />
+            )}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="rounded-md border">
