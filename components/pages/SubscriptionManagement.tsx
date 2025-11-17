@@ -124,7 +124,25 @@ export default function SubscriptionManagement() {
   // Fetch all subscriptions once, filter on client side for instant results
   const { data: allData, isLoading, isFetching, error, refetch } = useQuery({
     queryKey: ['subscriptions-all', statusFilter], // Only refetch when status filter changes
-    queryFn: () => fetchSubscriptions(1, '', statusFilter), // Fetch without search, we'll filter client-side
+    queryFn: () => fetchSubscriptions(1, '', statusFilter).then(async (firstPage) => {
+      // If there are more pages, fetch all of them
+      const totalPages = firstPage.pagination.pages;
+      if (totalPages > 1) {
+        const additionalPages = await Promise.all(
+          Array.from({ length: totalPages - 1 }, (_, i) => 
+            fetchSubscriptions(i + 2, '', statusFilter)
+          )
+        );
+        return {
+          subscriptions: [
+            ...firstPage.subscriptions,
+            ...additionalPages.flatMap(page => page.subscriptions)
+          ],
+          pagination: firstPage.pagination
+        };
+      }
+      return firstPage;
+    }),
     refetchInterval: 30000, // Real-time updates every 30 seconds
     staleTime: 10000, // Keep data fresh for 10 seconds
   });

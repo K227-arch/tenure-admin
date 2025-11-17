@@ -417,7 +417,6 @@ export default function AdminAccountsManagement() {
                   <TableHead>Email</TableHead>
                   <TableHead>Identity</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Created</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -443,7 +442,6 @@ export default function AdminAccountsManagement() {
                         {admin.status}
                       </Badge>
                     </TableCell>
-                    <TableCell>{new Date(admin.created_at).toLocaleDateString()}</TableCell>
                     <TableCell className="text-right">
                       {isSuperAdmin ? (
                         <div className="flex items-center justify-end gap-2">

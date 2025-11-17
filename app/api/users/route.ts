@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase/admin';
+import { userQueries } from '@/lib/db/queries';
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,65 +8,37 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '10');
     const search = searchParams.get('search') || '';
     const status = searchParams.get('status') || '';
-    const role = searchParams.get('role') || '';
 
     const offset = (page - 1) * limit;
 
-    // Build query using actual columns present in public.users
-    // Note: Only selecting columns that exist in the database
-    let query = supabaseAdmin
-      .from('users')
-      .select(`
-        id,
-        auth_user_id,
-        email,
-        name,
-        image,
-        status,
-        email_verified,
-        two_factor_enabled,
-        created_at,
-        updated_at
-      `, { count: 'exact' });
+    // Fetch users with filters
+    const usersRaw = await userQueries.getAll(limit, offset, {
+      status: status || undefined,
+      search: search || undefined,
+    });
 
-    // Apply filters
-    if (search) {
-      query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%`);
-    }
-    if (status) {
-      query = query.eq('status', status);
-    }
-    if (role) {
-      query = query.eq('role', role);
-    }
+    // Get total count for pagination
+    const stats = await userQueries.getStats();
+    const total = stats.total;
 
-    // Apply pagination and ordering
-    const { data: usersRaw, error, count: total } = await query
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
-
-    if (error) {
-      throw error;
-    }
-
-    // Map to the shape expected by the UI, filling non-existent fields with sensible defaults
-    const users = (usersRaw || []).map((u: any) => ({
+    // Map to the shape expected by the UI
+    const users = usersRaw.map((u) => ({
       id: u.id,
       email: u.email,
-      name: u.name,
-      role: u.role || null,
+      name: u.name || '',
+      role: null,
       status: u.status,
       membership_type: null,
-      joined_at: u.created_at,
-      last_active: u.updated_at,
+      joined_at: u.createdAt,
+      last_active: u.updatedAt,
       avatar: u.image,
       image: u.image,
-      phone: u.phone || null,
-      address: u.address || null,
-      email_verified: u.email_verified || false,
-      two_factor_enabled: u.two_factor_enabled || false,
-      created_at: u.created_at,
-      updated_at: u.updated_at,
+      phone: null,
+      address: null,
+      email_verified: u.emailVerified || false,
+      two_factor_enabled: u.twoFactorEnabled || false,
+      created_at: u.createdAt,
+      updated_at: u.updatedAt,
     }));
 
     return NextResponse.json({
@@ -74,8 +46,8 @@ export async function GET(request: NextRequest) {
       pagination: {
         page,
         limit,
-        total: total || 0,
-        pages: Math.ceil((total || 0) / limit),
+        total,
+        pages: Math.ceil(total / limit),
       },
     });
   } catch (error) {
@@ -90,25 +62,13 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, name } = body;
+    const { email, name, status = 'pending' } = body;
 
-    const userData = {
+    const newUser = await userQueries.create({
       email,
       name,
-      status: body.status || 'Pending',
-      image: body.avatar || body.image || null,
-      updated_at: new Date().toISOString(),
-    };
-
-    const { data: newUser, error } = await supabaseAdmin
-      .from('users')
-      .insert(userData)
-      .select()
-      .single();
-
-    if (error) {
-      throw error;
-    }
+      status: status as any,
+    });
 
     return NextResponse.json(newUser, { status: 201 });
   } catch (error) {

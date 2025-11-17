@@ -1,15 +1,8 @@
 import { NextResponse } from 'next/server';
-import { sign } from 'jsonwebtoken';
-import { createClient } from '@supabase/supabase-js';
 import bcrypt from 'bcryptjs';
 import { generate5DigitCode, hashCode, getCodeExpiration } from '@/lib/utils/2fa';
 import { send2FAEmail } from '@/lib/utils/send-email';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+import { adminAccountQueries, twoFactorAuthQueries, auditLogQueries } from '@/lib/db/queries';
 
 export async function POST(request: Request) {
   try {
@@ -23,25 +16,22 @@ export async function POST(request: Request) {
     }
 
     // Query admin table for user
-    const { data: admin, error } = await supabaseAdmin
-      .from('admin')
-      .select('*')
-      .eq('email', email)
-      .single();
+    const admin = await adminAccountQueries.findByEmail(email);
 
-    if (error || !admin) {
+    if (!admin) {
       // Get user agent for logging
       const userAgent = request.headers.get('user-agent') || 'unknown';
+      const ipAddress = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
       
       // Log failed login attempt
-      await supabaseAdmin.from('user_audit_logs').insert({
-        user_id: email,
-        action: 'login_attempt',
-        entity_type: 'admin',
-        success: false,
-        error_message: 'Invalid email or password',
-        user_agent: userAgent,
-        metadata: { email }
+      await auditLogQueries.create({
+        adminEmail: email,
+        action: 'login',
+        resource: 'admin_account',
+        details: { reason: 'Invalid email or password' },
+        ipAddress,
+        userAgent,
+        status: 'failed',
       });
 
       return NextResponse.json(
@@ -50,24 +40,19 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check if admin is active (if status field exists)
-    if (admin.status && admin.status !== 'active') {
+    // Check if admin is active
+    if (admin.status !== 'active') {
       return NextResponse.json(
         { error: 'Account is inactive. Please contact support.' },
         { status: 403 }
       );
     }
 
-    // Verify password - check if using hash/salt or password field
+    // Verify password using hash and salt
     let passwordMatch = false;
-    
     if (admin.hash && admin.salt) {
-      // Using hash and salt
       const hashedPassword = await bcrypt.hash(password, admin.salt);
       passwordMatch = hashedPassword === admin.hash;
-    } else if (admin.password) {
-      // Using password field
-      passwordMatch = await bcrypt.compare(password, admin.password);
     }
 
     if (!passwordMatch) {
@@ -83,18 +68,16 @@ export async function POST(request: Request) {
     const expiresAt = getCodeExpiration(10); // 10 minutes
 
     // Store the code in database
-    const { error: codeError } = await supabaseAdmin
-      .from('admin_2fa_codes')
-      .insert({
-        admin_id: admin.id,
+    try {
+      await twoFactorAuthQueries.create({
+        adminId: admin.id,
         code: codeHash,
-        expires_at: expiresAt.toISOString(),
+        expiresAt,
         used: false,
         attempts: 0,
-      });
-
-    if (codeError) {
-      console.error('Error storing 2FA code:', codeError);
+      } as any);
+    } catch (error) {
+      console.error('Error storing 2FA code:', error);
       return NextResponse.json(
         { error: 'Failed to generate verification code' },
         { status: 500 }
@@ -127,13 +110,15 @@ export async function POST(request: Request) {
     
     // Log error
     const userAgent = request.headers.get('user-agent') || 'unknown';
-    await supabaseAdmin.from('user_audit_logs').insert({
-      action: 'error',
-      entity_type: 'admin_login',
-      success: false,
-      error_message: error instanceof Error ? error.message : 'Unknown error',
-      user_agent: userAgent,
-      metadata: { error: String(error) }
+    const ipAddress = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
+    
+    await auditLogQueries.create({
+      action: 'login',
+      resource: 'admin_account',
+      details: { error: error instanceof Error ? error.message : 'Unknown error' },
+      ipAddress,
+      userAgent,
+      status: 'failed',
     });
 
     return NextResponse.json(

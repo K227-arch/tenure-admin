@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase/admin';
+import { billingScheduleQueries } from '@/lib/db/queries';
+import { count } from 'drizzle-orm';
+import { db } from '@/lib/db';
+import { billingSchedules } from '@/lib/db/schema';
 
 export async function GET(request: Request) {
   try {
@@ -7,84 +10,48 @@ export async function GET(request: Request) {
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
     const status = searchParams.get('status');
-    const search = searchParams.get('search');
 
     const offset = (page - 1) * limit;
 
-    // Build query using user_billing_schedules table
-    let query = supabaseAdmin
-      .from('user_billing_schedules')
-      .select(`
-        *,
-        users!inner(
-          id,
-          name,
-          email,
-          image
-        )
-      `, { count: 'exact' })
-      .order('created_at', { ascending: false });
+    // Fetch billing schedules with user data
+    const results = status === 'active' || !status || status === 'all'
+      ? await billingScheduleQueries.getAllActive(limit, offset)
+      : await billingScheduleQueries.getAll(limit, offset);
 
-    // Apply filters
-    if (status && status !== 'all') {
-      if (status === 'active') {
-        query = query.eq('is_active', true);
-      } else if (status === 'canceled') {
-        query = query.eq('is_active', false);
-      }
-    }
-
-    // Note: Search filtering will be done after fetching due to joined table limitations
-    // Supabase doesn't support .or() with nested relations in the same query
-
-    // Get all data first (we'll filter after due to join limitations)
-    const { data: billingSchedules, error } = await query;
-
-    if (error) {
-      throw error;
-    }
-
-    // Transform billing schedules to match subscription format
-    let subscriptions = (billingSchedules || []).map(schedule => ({
+    // Transform to match expected subscription format
+    const subscriptions = results.map(({ schedule, user }) => ({
       id: schedule.id,
-      user_id: schedule.user_id,
-      provider_subscription_id: schedule.subscription_id,
-      stripe_subscription_id: schedule.subscription_id,
+      user_id: schedule.userId,
+      provider_subscription_id: schedule.subscriptionId,
+      stripe_subscription_id: schedule.subscriptionId,
       provider: 'billing_schedule',
-      status: schedule.is_active ? 'active' : 'canceled',
-      current_period_start: schedule.created_at,
-      current_period_end: schedule.next_billing_date,
-      created_at: schedule.created_at,
-      users: schedule.users,
-      billing_cycle: schedule.billing_cycle,
-      amount: schedule.amount,
-      currency: schedule.currency
+      status: schedule.isActive ? 'active' : 'canceled',
+      current_period_start: schedule.createdAt,
+      current_period_end: schedule.nextBillingDate,
+      created_at: schedule.createdAt,
+      users: user ? {
+        id: user.id,
+        name: user.name || '',
+        email: user.email,
+        image: user.image,
+      } : null,
+      billing_cycle: schedule.billingCycle,
+      amount: schedule.amount ? parseFloat(schedule.amount) : 0,
+      currency: schedule.currency,
     }));
 
-    // Apply search filter after transformation
-    if (search) {
-      const searchLower = search.toLowerCase();
-      subscriptions = subscriptions.filter(sub => 
-        sub.users?.name?.toLowerCase().includes(searchLower) ||
-        sub.users?.email?.toLowerCase().includes(searchLower) ||
-        sub.provider_subscription_id?.toLowerCase().includes(searchLower)
-      );
-    }
-
-    // Calculate total before pagination
-    const total = subscriptions.length;
-
-    // Apply pagination
-    const paginatedSubscriptions = subscriptions.slice(offset, offset + limit);
+    // Get total count
+    const [totalResult] = await db.select({ count: count() }).from(billingSchedules);
+    const total = totalResult.count;
 
     return NextResponse.json({
-      subscriptions: paginatedSubscriptions,
+      subscriptions,
       pagination: {
         page,
         pages: Math.ceil(total / limit),
-        total: total,
-        limit
-      }
+        total,
+        limit,
+      },
     });
   } catch (error) {
     console.error('Error fetching subscriptions:', error);
@@ -99,24 +66,19 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     
-    const { data: subscription, error } = await supabaseAdmin
-      .from('user_subscriptions')
-      .insert([{
-        user_id: body.user_id,
-        provider: body.provider || 'stripe',
-        provider_subscription_id: body.stripe_subscription_id,
-        provider_customer_id: body.provider_customer_id || '',
-        status: body.status || 'active',
-        current_period_start: body.current_period_start,
-        current_period_end: body.current_period_end,
-        cancel_at_period_end: false
-      }])
-      .select()
-      .single();
-
-    if (error) {
-      throw error;
-    }
+    const subscription = await subscriptionQueries.create({
+      userId: body.user_id,
+      stripeSubscriptionId: body.stripe_subscription_id,
+      stripePriceId: body.stripe_price_id,
+      status: (body.status || 'active') as any,
+      planName: body.plan_name,
+      amount: body.amount,
+      currency: body.currency || 'usd',
+      interval: body.interval,
+      currentPeriodStart: body.current_period_start ? new Date(body.current_period_start) : undefined,
+      currentPeriodEnd: body.current_period_end ? new Date(body.current_period_end) : undefined,
+      cancelAtPeriodEnd: false,
+    });
 
     return NextResponse.json(subscription);
   } catch (error) {

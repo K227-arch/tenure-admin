@@ -1,14 +1,10 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import bcrypt from 'bcryptjs';
 import { verify } from 'jsonwebtoken';
 import { cookies } from 'next/headers';
+import { adminAccountQueries, auditLogQueries } from '@/lib/db/queries';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
 // Helper function to verify admin role
 async function verifyAdminRole(): Promise<{ isSuperAdmin: boolean; adminId: string | null; error: string | null }> {
@@ -41,7 +37,7 @@ export async function PUT(
 ) {
   try {
     // Check if user is super admin
-    const { isSuperAdmin, error: authError } = await verifyAdminRole();
+    const { isSuperAdmin, adminId, error: authError } = await verifyAdminRole();
     
     if (authError || !isSuperAdmin) {
       return NextResponse.json(
@@ -53,9 +49,7 @@ export async function PUT(
     const body = await request.json();
     const { email, password, name, role, status } = body;
 
-    const updateData: any = {
-      updated_at: new Date().toISOString(),
-    };
+    const updateData: any = {};
 
     // Only add fields that are provided
     if (email) updateData.email = email;
@@ -71,30 +65,33 @@ export async function PUT(
       updateData.salt = salt;
     }
 
-    console.log('Updating admin with data:', { ...updateData, password: '***', hash: '***', salt: '***' });
+    console.log('Updating admin with data:', { ...updateData, hash: '***', salt: '***' });
 
-    const { data, error } = await supabaseAdmin
-      .from('admin')
-      .update(updateData)
-      .eq('id', params.id)
-      .select()
-      .single();
+    const admin = await adminAccountQueries.update(parseInt(params.id), updateData);
 
-    if (error) {
-      console.error('Supabase update error:', error);
-      console.error('Error details:', JSON.stringify(error, null, 2));
+    if (!admin) {
       return NextResponse.json(
-        { error: error.message || 'Failed to update admin account' },
-        { status: 500 }
+        { error: 'Admin account not found' },
+        { status: 404 }
       );
     }
 
-    console.log('Admin updated successfully:', data?.id);
+    console.log('Admin updated successfully:', admin.id);
 
     // Remove sensitive fields from response
-    const { password: _, hash: __, salt: ___, reset_password_token: ____, ...adminWithoutSensitiveData } = data;
+    const { hash: _, salt: __, resetPasswordToken, twoFactorSecret, backupCodes, ...adminWithoutSensitive } = admin;
 
-    return NextResponse.json({ admin: adminWithoutSensitiveData });
+    // Log the update
+    await auditLogQueries.create({
+      adminId: adminId!,
+      action: 'update',
+      resource: 'admin_account',
+      resourceId: admin.id.toString(),
+      details: { updatedFields: Object.keys(updateData) },
+      status: 'success',
+    });
+
+    return NextResponse.json({ admin: adminWithoutSensitive });
   } catch (error) {
     console.error('Error updating admin:', error);
     return NextResponse.json({ error: 'Failed to update admin account' }, { status: 500 });
@@ -108,7 +105,7 @@ export async function DELETE(
 ) {
   try {
     // Check if user is super admin
-    const { isSuperAdmin, error: authError } = await verifyAdminRole();
+    const { isSuperAdmin, adminId, error: authError } = await verifyAdminRole();
     
     if (authError || !isSuperAdmin) {
       return NextResponse.json(
@@ -117,12 +114,16 @@ export async function DELETE(
       );
     }
 
-    const { error } = await supabaseAdmin
-      .from('admin')
-      .delete()
-      .eq('id', params.id);
+    await adminAccountQueries.delete(parseInt(params.id));
 
-    if (error) throw error;
+    // Log the deletion
+    await auditLogQueries.create({
+      adminId: adminId!,
+      action: 'delete',
+      resource: 'admin_account',
+      resourceId: params.id,
+      status: 'success',
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

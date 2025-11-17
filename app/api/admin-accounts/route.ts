@@ -1,14 +1,10 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import bcrypt from 'bcryptjs';
 import { verify } from 'jsonwebtoken';
 import { cookies } from 'next/headers';
+import { adminAccountQueries, auditLogQueries } from '@/lib/db/queries';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
 // Helper function to verify admin role
 async function verifyAdminRole(request: Request): Promise<{ isSuperAdmin: boolean; adminId: string | null; error: string | null }> {
@@ -32,17 +28,11 @@ async function verifyAdminRole(request: Request): Promise<{ isSuperAdmin: boolea
 // GET - Fetch all admin accounts
 export async function GET() {
   try {
-    // Get all columns from admin table
-    const { data: admins, error } = await supabaseAdmin
-      .from('admin')
-      .select('*')
-      .order('created_at', { ascending: false });
+    const admins = await adminAccountQueries.getAll();
 
-    if (error) throw error;
-
-    // Remove sensitive fields (password, hash, salt) from all admin objects
-    const adminsWithoutSensitiveData = admins?.map(admin => {
-      const { password, hash, salt, reset_password_token, ...adminData } = admin;
+    // Remove sensitive fields (hash, salt) from all admin objects
+    const adminsWithoutSensitiveData = admins.map(admin => {
+      const { hash, salt, resetPasswordToken, twoFactorSecret, backupCodes, ...adminData } = admin;
       return adminData;
     });
 
@@ -57,7 +47,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     // Check if user is super admin
-    const { isSuperAdmin, error: authError } = await verifyAdminRole(request);
+    const { isSuperAdmin, adminId, error: authError } = await verifyAdminRole(request);
     
     if (authError || !isSuperAdmin) {
       return NextResponse.json(
@@ -67,66 +57,56 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { email, password, name, role = 'viewer', status = 'active' } = body;
+    const { email, password, name, role = 'admin', status = 'active' } = body;
 
-    if (!email || !password) {
+    if (!email || !password || !name) {
       return NextResponse.json(
-        { error: 'Email and password are required' },
+        { error: 'Email, password, and name are required' },
         { status: 400 }
       );
+    }
+
+    // Check if email already exists
+    const existingAdmin = await adminAccountQueries.findByEmail(email);
+    if (existingAdmin) {
+      return NextResponse.json({ error: 'Email already exists' }, { status: 400 });
     }
 
     // Generate salt and hash using bcrypt
     const salt = await bcrypt.genSalt(10);
     const hash = await bcrypt.hash(password, salt);
 
-    // Build insert object matching the actual table structure
-    const insertData: any = {
+    // Create admin account
+    const admin = await adminAccountQueries.create({
       email,
       hash,
       salt,
+      name,
       role,
       status,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-
-    // Add name if provided
-    if (name) {
-      insertData.name = name;
-    }
-
-    const { data, error } = await supabaseAdmin
-      .from('admin')
-      .insert(insertData)
-      .select()
-      .single();
-
-    if (error) {
-      if (error.code === '23505') {
-        return NextResponse.json({ error: 'Email already exists' }, { status: 400 });
-      }
-      throw error;
-    }
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as any);
 
     // Remove sensitive fields from response
-    const { hash: _, salt: __, ...adminWithoutPassword } = data;
+    const { hash: _, salt: __, resetPasswordToken, twoFactorSecret, backupCodes, ...adminWithoutSensitive } = admin;
 
     // Log admin account creation
-    await supabaseAdmin.from('user_audit_logs').insert({
-      user_id: data.id,
-      action: 'signup_attempt',
-      entity_type: 'admin',
-      entity_id: data.id,
-      success: true,
-      metadata: { 
-        email: data.email,
-        role: data.role,
+    await auditLogQueries.create({
+      adminId: adminId!,
+      adminEmail: email,
+      action: 'create',
+      resource: 'admin_account',
+      resourceId: admin.id.toString(),
+      details: { 
+        email: admin.email,
+        role: admin.role,
         created_by: 'super_admin'
-      }
+      },
+      status: 'success',
     });
 
-    return NextResponse.json({ admin: adminWithoutPassword }, { status: 201 });
+    return NextResponse.json({ admin: adminWithoutSensitive }, { status: 201 });
   } catch (error) {
     console.error('Error creating admin:', error);
     return NextResponse.json({ error: 'Failed to create admin account' }, { status: 500 });
