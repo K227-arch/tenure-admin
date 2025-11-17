@@ -227,9 +227,14 @@ export default function Payouts() {
               >
                 <div className="space-y-1">
                   <div className="flex items-center gap-3">
-                    <p className="font-semibold text-foreground">
-                      {member.full_name || member.users?.name || member.user_name || member.name || `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'No Name'}
-                    </p>
+                    <div>
+                      <p className="font-semibold text-foreground">
+                        {member.full_name || member.users?.name || member.user_name || member.name || `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'No Name'}
+                      </p>
+                      <p className="text-xs text-muted-foreground font-mono">
+                        User ID: {member.user_id || member.users?.id || 'N/A'}
+                      </p>
+                    </div>
                     <Badge variant="secondary">#{member.queue_position || member.id}</Badge>
                   </div>
                   <p className="text-sm text-muted-foreground">
