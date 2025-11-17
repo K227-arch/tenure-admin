@@ -21,7 +21,7 @@ export async function GET() {
       console.error('Error fetching payouts:', error);
     }
 
-    // Calculate total payout pool from all payments
+    // Calculate total revenue collected from all payments
     const { data: payments } = await supabaseAdmin
       .from('user_payments')
       .select('amount, status');
@@ -32,9 +32,6 @@ export async function GET() {
       }
       return sum;
     }, 0) || 0;
-
-    // Calculate payout pool (e.g., 10% of total revenue or custom logic)
-    const payoutPool = totalRevenue * 0.1; // 10% of revenue goes to payout pool
 
     // Calculate next payout date (e.g., first day of next month)
     const now = new Date();
@@ -49,7 +46,8 @@ export async function GET() {
     return NextResponse.json({
       payouts: payouts || [],
       stats: {
-        totalPayoutPool: payoutPool,
+        totalRevenue: totalRevenue, // Total revenue collected
+        totalPayoutPool: totalRevenue, // Show total revenue as payout pool
         nextPayoutDate: nextPayoutFormatted,
         monthsUntilPayout: monthsUntilPayout
       }

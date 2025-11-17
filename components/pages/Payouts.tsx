@@ -50,7 +50,7 @@ export default function Payouts() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['payout-data'],
     queryFn: fetchPayoutData,
-    refetchInterval: 60000, // Refetch every minute
+    refetchInterval: 10000, // Refetch every 10 seconds for real-time updates
   });
 
   // Real-time subscription for membership queue and payment changes
@@ -169,7 +169,7 @@ export default function Payouts() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Trophy className="h-5 w-5 text-primary" />
-              Total Payout Pool
+              Total Revenue Collected
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -177,7 +177,7 @@ export default function Payouts() {
               ${totalPayoutPool.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
             <p className="text-sm text-muted-foreground mt-1">
-              Available for distribution
+              Real-time revenue tracking
             </p>
           </CardContent>
         </Card>
@@ -228,12 +228,12 @@ export default function Payouts() {
                 <div className="space-y-1">
                   <div className="flex items-center gap-3">
                     <p className="font-semibold text-foreground">
-                      {member.users?.name || member.user_name || member.name || 'Unknown Member'}
+                      {member.full_name || member.users?.name || member.user_name || member.name || `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'No Name'}
                     </p>
                     <Badge variant="secondary">#{member.queue_position || member.id}</Badge>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Queue Position: {member.queue_position} | Status: {member.status || 'Active'}
+                    {member.email || member.users?.email || 'No email'} | Queue Position: {member.queue_position} | Status: {member.status || member.verification_status || 'Active'}
                   </p>
                 </div>
                 <div className="flex items-center gap-4">
@@ -283,7 +283,9 @@ export default function Payouts() {
                 className="flex items-center justify-between border-b border-border pb-4 last:border-0"
               >
                 <div>
-                  <p className="font-semibold text-foreground">{payout.winner || payout.user_name || 'Unknown Winner'}</p>
+                  <p className="font-semibold text-foreground">
+                    {payout.users?.name || payout.winner || payout.user_name || payout.full_name || `${payout.first_name || ''} ${payout.last_name || ''}`.trim() || 'No Name'}
+                  </p>
                   <p className="text-sm text-muted-foreground">{payout.date || payout.created_at || 'Unknown Date'}</p>
                 </div>
                 <div className="flex items-center gap-4">
@@ -327,7 +329,7 @@ export default function Payouts() {
                 </Avatar>
                 <div>
                   <h3 className="text-lg font-semibold">
-                    {selectedMember.users?.name || selectedMember.user_name || selectedMember.name || 'Unknown Member'}
+                    {selectedMember.full_name || selectedMember.users?.name || selectedMember.user_name || selectedMember.name || `${selectedMember.first_name || ''} ${selectedMember.last_name || ''}`.trim() || 'No Name'}
                   </h3>
                   <p className="text-sm text-muted-foreground">
                     Queue Position #{selectedMember.queue_position || selectedMember.id}
