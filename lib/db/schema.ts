@@ -32,18 +32,23 @@ export const adminAccounts = pgTable('admin', {
 
 // Admin Sessions Table
 export const adminSessions = pgTable('admin_sessions', {
-  id: uuid('id').primaryKey().defaultRandom(),
+  id: text('id').primaryKey(),
   adminId: integer('admin_id').notNull().references(() => adminAccounts.id, { onDelete: 'cascade' }),
-  token: text('token').notNull().unique(),
-  ipAddress: varchar('ip_address', { length: 45 }),
+  sessionToken: text('session_token').notNull().unique(),
+  ipAddress: text('ip_address'),
   userAgent: text('user_agent'),
-  expiresAt: timestamp('expires_at').notNull(),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  lastActivity: timestamp('last_activity', { withTimezone: true }).notNull(),
+  isActive: boolean('is_active'),
+  logoutAt: timestamp('logout_at', { withTimezone: true }),
+  logoutReason: varchar('logout_reason', { length: 255 }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 });
 
 // Two-Factor Authentication Table (using existing admin_2fa_codes)
 export const twoFactorAuth = pgTable('admin_2fa_codes', {
-  id: integer('id').primaryKey(),
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
   adminId: integer('admin_id').notNull().references(() => adminAccounts.id, { onDelete: 'cascade' }),
   code: varchar('code', { length: 255 }).notNull(),
   expiresAt: timestamp('expires_at').notNull(),
@@ -165,7 +170,7 @@ export const adminAlerts = pgTable('admin_alerts', {
   type: varchar('type', { length: 50 }).notNull(),
   severity: varchar('severity', { length: 50 }).notNull().default('info'),
   read: boolean('read').notNull().default(false),
-  readBy: uuid('read_by').references(() => adminAccounts.id, { onDelete: 'set null' }),
+  readBy: integer('read_by').references(() => adminAccounts.id, { onDelete: 'set null' }),
   readAt: timestamp('read_at'),
   metadata: jsonb('metadata'),
   createdAt: timestamp('created_at').notNull().defaultNow(),

@@ -83,7 +83,7 @@ export async function PUT(
 
     // Log the update
     await auditLogQueries.create({
-      adminId: adminId!,
+      adminId: adminId ? parseInt(adminId) : undefined,
       action: 'update',
       resource: 'admin_account',
       resourceId: admin.id.toString(),
@@ -118,7 +118,7 @@ export async function DELETE(
 
     // Log the deletion
     await auditLogQueries.create({
-      adminId: adminId!,
+      adminId: adminId ? parseInt(adminId) : undefined,
       action: 'delete',
       resource: 'admin_account',
       resourceId: params.id,

@@ -1,69 +1,46 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { verify } from 'jsonwebtoken';
+import { adminSessionQueries } from '@/lib/db/queries';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
 // GET - Fetch sessions for current admin or all sessions
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const adminId = searchParams.get('admin_id');
-    const activeOnly = searchParams.get('active_only') === 'true';
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '100');
+    const offset = (page - 1) * limit;
 
-    let query = supabaseAdmin
-      .from('admin_sessions')
-      .select('*')
-      .order('created_at', { ascending: false });
-
+    let sessions;
     if (adminId) {
-      query = query.eq('admin_id', adminId);
+      sessions = await adminSessionQueries.findByAdminId(parseInt(adminId));
+    } else {
+      sessions = await adminSessionQueries.getAll(limit, offset);
     }
 
-    // Apply active filter at database level if requested
-    if (activeOnly) {
-      query = query.gt('expires_at', new Date().toISOString());
-    }
+    // Add is_active flag
+    const sessionsWithStatus = sessions.map(session => {
+      const isActive = new Date(session.expiresAt) > new Date();
+      return {
+        id: session.id,
+        admin_id: session.adminId,
+        session_token: session.token,
+        ip_address: session.ipAddress,
+        user_agent: session.userAgent,
+        expires_at: session.expiresAt,
+        created_at: session.createdAt,
+        is_active: isActive,
+        admin: {
+          id: session.adminId,
+          email: session.adminEmail,
+          name: session.adminName
+        }
+      };
+    });
 
-    const { data: sessions, error } = await query;
-
-    if (error) {
-      console.error('Error fetching sessions from database:', error);
-      throw error;
-    }
-
-    console.log(`Fetched ${sessions?.length || 0} sessions from database`);
-
-    let filteredSessions = sessions || [];
-
-    // Fetch admin details separately
-    if (filteredSessions.length > 0) {
-      const adminIds = Array.from(new Set(filteredSessions.map(s => s.admin_id)));
-      const { data: admins } = await supabaseAdmin
-        .from('admin')
-        .select('id, email, name')
-        .in('id', adminIds);
-
-      const adminMap = new Map(admins?.map(a => [a.id, a]) || []);
-
-      // Add is_active flag and admin details
-      const sessionsWithStatus = filteredSessions.map(session => {
-        const isActive = new Date(session.expires_at) > new Date();
-        return {
-          ...session,
-          is_active: isActive,
-          admin: adminMap.get(session.admin_id) || null
-        };
-      });
-
-      return NextResponse.json({ sessions: sessionsWithStatus });
-    }
-
-    return NextResponse.json({ sessions: [] });
+    return NextResponse.json({ sessions: sessionsWithStatus });
   } catch (error) {
     console.error('Error fetching sessions:', error);
     return NextResponse.json({ error: 'Failed to fetch sessions' }, { status: 500 });
@@ -80,15 +57,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'session_id is required' }, { status: 400 });
     }
 
-    // Invalidate by setting expires_at to now
-    const { error } = await supabaseAdmin
-      .from('admin_sessions')
-      .update({ 
-        expires_at: new Date().toISOString()
-      })
-      .eq('id', sessionId);
-
-    if (error) throw error;
+    await adminSessionQueries.delete(sessionId);
 
     return NextResponse.json({ success: true });
   } catch (error) {

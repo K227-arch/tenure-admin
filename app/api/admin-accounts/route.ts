@@ -93,7 +93,7 @@ export async function POST(request: Request) {
 
     // Log admin account creation
     await auditLogQueries.create({
-      adminId: adminId!,
+      adminId: adminId ? parseInt(adminId) : undefined,
       adminEmail: email,
       action: 'create',
       resource: 'admin_account',

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { billingScheduleQueries } from '@/lib/db/queries';
+import { billingScheduleQueries, subscriptionQueries } from '@/lib/db/queries';
 import { count } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { billingSchedules } from '@/lib/db/schema';

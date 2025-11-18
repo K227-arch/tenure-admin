@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 import { sign } from 'jsonwebtoken';
-import { createClient } from '@supabase/supabase-js';
 import { hashCode, isValidCodeFormat, generateBackupCodes } from '@/lib/utils/2fa';
 import bcrypt from 'bcryptjs';
+import { adminAccountQueries, twoFactorAuthQueries, adminSessionQueries, auditLogQueries } from '@/lib/db/queries';
+import { eq } from 'drizzle-orm';
+import { db } from '@/lib/db';
+import { twoFactorAuth } from '@/lib/db/schema';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
 export async function POST(request: Request) {
   try {
@@ -29,17 +29,9 @@ export async function POST(request: Request) {
     }
 
     // Get the most recent unused code for this admin
-    const { data: codeRecord, error: codeError } = await supabaseAdmin
-      .from('admin_2fa_codes')
-      .select('*')
-      .eq('admin_id', adminId)
-      .eq('used', false)
-      .gt('expires_at', new Date().toISOString())
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
+    const codeRecord = await twoFactorAuthQueries.findLatestByAdminId(adminId);
 
-    if (codeError || !codeRecord) {
+    if (!codeRecord) {
       return NextResponse.json(
         { error: 'Invalid or expired code' },
         { status: 401 }
@@ -58,10 +50,10 @@ export async function POST(request: Request) {
     const codeHash = hashCode(code);
     if (codeHash !== codeRecord.code) {
       // Increment attempts
-      await supabaseAdmin
-        .from('admin_2fa_codes')
-        .update({ attempts: codeRecord.attempts + 1 })
-        .eq('id', codeRecord.id);
+      await db
+        .update(twoFactorAuth)
+        .set({ attempts: (codeRecord.attempts || 0) + 1 })
+        .where(eq(twoFactorAuth.id, codeRecord.id));
 
       return NextResponse.json(
         { error: 'Invalid code' },
@@ -70,10 +62,7 @@ export async function POST(request: Request) {
     }
 
     // Mark code as used
-    await supabaseAdmin
-      .from('admin_2fa_codes')
-      .update({ used: true })
-      .eq('id', codeRecord.id);
+    await twoFactorAuthQueries.markAsUsed(codeRecord.id);
 
     // Generate backup codes
     const backupCodes = generateBackupCodes(10);
@@ -82,33 +71,15 @@ export async function POST(request: Request) {
     );
 
     // Enable 2FA for admin
-    const { error: updateError } = await supabaseAdmin
-      .from('admin')
-      .update({
-        two_factor_enabled: true,
-        backup_codes: hashedBackupCodes,
-      })
-      .eq('id', adminId);
+    const admin = await adminAccountQueries.update(adminId, {
+      twoFactorEnabled: true,
+      backupCodes: hashedBackupCodes,
+    });
 
-    if (updateError) {
-      console.error('Error enabling 2FA:', updateError);
+    if (!admin) {
       return NextResponse.json(
         { error: 'Failed to enable 2FA' },
         { status: 500 }
-      );
-    }
-
-    // Get admin details
-    const { data: admin, error: adminError } = await supabaseAdmin
-      .from('admin')
-      .select('*')
-      .eq('id', adminId)
-      .single();
-
-    if (adminError || !admin) {
-      return NextResponse.json(
-        { error: 'Admin not found' },
-        { status: 404 }
       );
     }
 
@@ -137,30 +108,33 @@ export async function POST(request: Request) {
     // Create session record
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 24);
+    const now = new Date();
 
-    await supabaseAdmin
-      .from('admin_sessions')
-      .insert({
-        admin_id: admin.id,
-        session_token: sessionId,
-        ip_address: ip,
-        user_agent: userAgent,
-        expires_at: expiresAt.toISOString(),
-        last_activity: new Date().toISOString(),
-        is_active: true,
-      });
+    await adminSessionQueries.create({
+      id: sessionId,
+      adminId: admin.id,
+      sessionToken: sessionId,
+      ipAddress: ip,
+      userAgent: userAgent,
+      expiresAt: expiresAt,
+      lastActivity: now,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
 
     // Log 2FA setup
-    await supabaseAdmin.from('user_audit_logs').insert({
-      user_id: admin.id,
-      action: '2fa_enabled',
-      entity_type: 'admin',
-      entity_id: admin.id,
-      success: true,
-      user_agent: userAgent,
-      metadata: { 
+    await auditLogQueries.create({
+      adminEmail: admin.email,
+      action: 'create',
+      resource: '2fa_setup',
+      resourceId: admin.id.toString(),
+      ipAddress: ip,
+      userAgent: userAgent,
+      status: 'success',
+      status: 'success',
+      details: { 
         email: admin.email,
-        ip_address: ip
       }
     });
 

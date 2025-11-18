@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase/client';
 import { getStripeStats } from '@/lib/integrations/stripe';
 import { getTwilioStats } from '@/lib/integrations/twilio';
 import { getEmailStats } from '@/lib/integrations/email';
+import { userQueries, subscriptionQueries, transactionQueries } from '@/lib/db/queries';
 
 // Helper function to calculate time ago
 function getTimeAgo(date: Date): string {
@@ -36,31 +36,30 @@ function parseTimeAgo(timeStr: string): number {
 
 export async function GET() {
   try {
-    const today = new Date().toISOString().split('T')[0];
-    
-    // Get user stats
-    const { data: users, error: usersError } = await supabase
-      .from('users')
-      .select('*');
-    
-    // Get payment stats
-    const { data: payments, error: paymentsError } = await supabase
-      .from('user_payments')
-      .select('*');
-    
-    // Get subscription stats
-    const { data: subscriptions, error: subscriptionsError } = await supabase
-      .from('user_subscriptions')
-      .select('*');
+    // Get stats from Drizzle
+    const userStats = await userQueries.getStats();
+    const subscriptionStats = await subscriptionQueries.getStats();
+    const transactionStats = await transactionQueries.getStats();
+
+    // Get all data for charts
+    const users = await userQueries.getAll(1000, 0);
+    const subscriptionsData = await subscriptionQueries.getAll(1000, 0);
+    const transactionsData = await transactionQueries.getAll(1000, 0);
 
     // Calculate stats
-    const totalRevenue = payments?.reduce((sum, payment) => sum + (payment.amount || 0), 0) || 0;
-    const activeMembers = users?.length || 0;
-    const totalTransactions = payments?.length || 0;
-    const activeSubscriptions = subscriptions?.filter(sub => sub.status === 'active').length || 0;
+    const totalRevenue = transactionStats.totalAmount || 0;
+    const activeMembers = userStats.total || 0;
+    const totalTransactions = transactionStats.total || 0;
+    
+    console.log('Dashboard Stats:', {
+      totalRevenue,
+      totalRevenueType: typeof totalRevenue,
+      transactionStats,
+      activeMembers,
+      totalTransactions
+    });
 
     // Generate real chart data based on database records
-    const currentYear = new Date().getFullYear();
     const revenueData = [];
     const memberData = [];
 
@@ -74,31 +73,27 @@ export async function GET() {
       const monthName = monthStart.toLocaleDateString('en-US', { month: 'short' });
       
       // Calculate revenue for this month
-      const monthPayments = payments?.filter(payment => {
-        const paymentDate = new Date(payment.created_at);
-        return paymentDate >= monthStart && paymentDate <= monthEnd;
-      }) || [];
+      const monthTransactions = transactionsData.filter((t: any) => {
+        const txDate = new Date(t.transaction.createdAt);
+        return txDate >= monthStart && txDate <= monthEnd && t.transaction.status === 'completed';
+      });
       
-      const monthRevenue = monthPayments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
-      
-      // Calculate user registrations for this month
-      const monthUsers = users?.filter(user => {
-        const userDate = new Date(user.created_at);
-        return userDate >= monthStart && userDate <= monthEnd;
-      }) || [];
+      const monthRevenue = monthTransactions.reduce((sum: number, t: any) => 
+        sum + parseFloat(t.transaction.amount.toString()), 0
+      );
       
       // Calculate active subscriptions for this month
-      const monthActiveSubscriptions = subscriptions?.filter(sub => {
-        const subDate = new Date(sub.created_at);
-        return subDate <= monthEnd && (sub.status === 'active' || !sub.status);
-      }) || [];
+      const monthActiveSubscriptions = subscriptionsData.filter((sub: any) => {
+        const subDate = new Date(sub.subscription.createdAt);
+        return subDate <= monthEnd && sub.subscription.status === 'active';
+      });
       
       // Calculate defaulted/canceled subscriptions
-      const monthDefaulted = subscriptions?.filter(sub => {
-        const subDate = new Date(sub.created_at);
+      const monthDefaulted = subscriptionsData.filter((sub: any) => {
+        const subDate = new Date(sub.subscription.createdAt);
         return subDate >= monthStart && subDate <= monthEnd && 
-               (sub.status === 'canceled' || sub.status === 'defaulted');
-      }) || [];
+               (sub.subscription.status === 'cancelled' || sub.subscription.status === 'past_due');
+      });
 
       revenueData.push({
         month: monthName,
@@ -115,18 +110,24 @@ export async function GET() {
     // Generate recent activity from real data
     const recentActivity = [];
     
-    // Get recent users (last 10)
-    const recentUsers = users?.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 3) || [];
+    // Get recent users (last 3)
+    const recentUsers = [...users].sort((a: any, b: any) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    ).slice(0, 3);
     
-    // Get recent payments (last 10)
-    const recentPayments = payments?.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 3) || [];
+    // Get recent transactions (last 3)
+    const recentTransactions = [...transactionsData].sort((a: any, b: any) => 
+      new Date(b.transaction.createdAt).getTime() - new Date(a.transaction.createdAt).getTime()
+    ).slice(0, 3);
     
-    // Get recent subscriptions (last 10)
-    const recentSubscriptions = subscriptions?.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 2) || [];
+    // Get recent subscriptions (last 2)
+    const recentSubs = [...subscriptionsData].sort((a: any, b: any) => 
+      new Date(b.subscription.createdAt).getTime() - new Date(a.subscription.createdAt).getTime()
+    ).slice(0, 2);
 
     // Add recent users
-    recentUsers.forEach(user => {
-      const timeAgo = getTimeAgo(new Date(user.created_at));
+    recentUsers.forEach((user: any) => {
+      const timeAgo = getTimeAgo(new Date(user.createdAt));
       recentActivity.push({
         action: 'New user registration',
         user: user.name || user.email || 'Unknown User',
@@ -134,31 +135,28 @@ export async function GET() {
       });
     });
 
-    // Add recent payments
-    recentPayments.forEach(payment => {
-      const timeAgo = getTimeAgo(new Date(payment.created_at));
-      const user = users?.find(u => u.id === payment.user_id);
+    // Add recent transactions
+    recentTransactions.forEach((t: any) => {
+      const timeAgo = getTimeAgo(new Date(t.transaction.createdAt));
       recentActivity.push({
-        action: `Payment processed ($${payment.amount || 0})`,
-        user: user?.name || user?.email || 'Unknown User',
+        action: `Payment processed ($${t.transaction.amount})`,
+        user: t.user?.name || t.user?.email || 'Unknown User',
         time: timeAgo
       });
     });
 
     // Add recent subscriptions
-    recentSubscriptions.forEach(subscription => {
-      const timeAgo = getTimeAgo(new Date(subscription.created_at));
-      const user = users?.find(u => u.id === subscription.user_id);
+    recentSubs.forEach((sub: any) => {
+      const timeAgo = getTimeAgo(new Date(sub.subscription.createdAt));
       recentActivity.push({
-        action: subscription.status === 'active' ? 'Subscription activated' : 'Subscription updated',
-        user: user?.name || user?.email || 'Unknown User',
+        action: sub.subscription.status === 'active' ? 'Subscription activated' : 'Subscription updated',
+        user: sub.user?.name || sub.user?.email || 'Unknown User',
         time: timeAgo
       });
     });
 
-    // Sort by most recent and limit to 10
-    recentActivity.sort((a, b) => {
-      // Simple time comparison (this is approximate)
+    // Sort by most recent
+    recentActivity.sort((a: any, b: any) => {
       const timeA = parseTimeAgo(a.time);
       const timeB = parseTimeAgo(b.time);
       return timeA - timeB;
@@ -174,7 +172,7 @@ export async function GET() {
 
     return NextResponse.json({
       stats: {
-        totalRevenue: `$${totalRevenue.toLocaleString()}`,
+        totalRevenue: `$${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
         activeMembers,
         totalTransactions,
         revenueChange: '+12.5% from last month',

@@ -1,13 +1,12 @@
 import { NextResponse } from 'next/server';
 import { sign } from 'jsonwebtoken';
-import { createClient } from '@supabase/supabase-js';
 import { hashCode, isValid5DigitCodeFormat } from '@/lib/utils/2fa';
+import { adminAccountQueries, twoFactorAuthQueries, adminSessionQueries, auditLogQueries } from '@/lib/db/queries';
+import { eq } from 'drizzle-orm';
+import { db } from '@/lib/db';
+import { twoFactorAuth } from '@/lib/db/schema';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
 export async function POST(request: Request) {
   try {
@@ -29,60 +28,64 @@ export async function POST(request: Request) {
     }
 
     // Get the most recent unused code for this admin
-    const { data: codeRecord, error: codeError } = await supabaseAdmin
-      .from('admin_2fa_codes')
-      .select('*')
-      .eq('admin_id', adminId)
-      .eq('used', false)
-      .gt('expires_at', new Date().toISOString())
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
+    const codeRecord = await twoFactorAuthQueries.findLatestByAdminId(adminId);
 
-    if (codeError || !codeRecord) {
+    if (!codeRecord) {
+      console.error('No unused code found for admin:', adminId);
       return NextResponse.json(
-        { error: 'Invalid or expired code' },
+        { error: 'No verification code found. Please log in again.' },
+        { status: 401 }
+      );
+    }
+
+    // Check if code is expired
+    if (new Date() > new Date(codeRecord.expiresAt)) {
+      console.error('Code expired for admin:', adminId, 'Expired at:', codeRecord.expiresAt);
+      return NextResponse.json(
+        { error: 'Verification code has expired. Please log in again.' },
         { status: 401 }
       );
     }
 
     // Check attempts
     if (codeRecord.attempts >= 3) {
+      console.error('Too many attempts for admin:', adminId);
       return NextResponse.json(
-        { error: 'Too many attempts. Please request a new code.' },
+        { error: 'Too many attempts. Please log in again to get a new code.' },
         { status: 429 }
       );
     }
 
     // Verify code
     const codeHash = hashCode(code);
+    console.log('Verifying code for admin:', adminId);
+    console.log('Code entered:', code);
+    console.log('Hash generated:', codeHash);
+    console.log('Hash in DB:', codeRecord.code);
+    console.log('Match:', codeHash === codeRecord.code);
+    
     if (codeHash !== codeRecord.code) {
       // Increment attempts
-      await supabaseAdmin
-        .from('admin_2fa_codes')
-        .update({ attempts: codeRecord.attempts + 1 })
-        .eq('id', codeRecord.id);
+      const newAttempts = (codeRecord.attempts || 0) + 1;
+      await db
+        .update(twoFactorAuth)
+        .set({ attempts: newAttempts })
+        .where(eq(twoFactorAuth.id, codeRecord.id));
 
+      console.error('Invalid code attempt', newAttempts, 'for admin:', adminId);
       return NextResponse.json(
-        { error: 'Invalid code' },
+        { error: `Invalid code. ${3 - newAttempts} attempts remaining.` },
         { status: 401 }
       );
     }
 
     // Mark code as used
-    await supabaseAdmin
-      .from('admin_2fa_codes')
-      .update({ used: true })
-      .eq('id', codeRecord.id);
+    await twoFactorAuthQueries.markAsUsed(codeRecord.id);
 
     // Get admin details
-    const { data: admin, error: adminError } = await supabaseAdmin
-      .from('admin')
-      .select('*')
-      .eq('id', adminId)
-      .single();
+    const admin = await adminAccountQueries.findById(adminId);
 
-    if (adminError || !admin) {
+    if (!admin) {
       return NextResponse.json(
         { error: 'Admin not found' },
         { status: 404 }
@@ -90,7 +93,7 @@ export async function POST(request: Request) {
     }
 
     // Check if 2FA is enabled
-    if (!admin.two_factor_enabled) {
+    if (!admin.twoFactorEnabled) {
       // Redirect to 2FA setup
       return NextResponse.json({
         success: true,
@@ -125,31 +128,34 @@ export async function POST(request: Request) {
     // Create session record
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 24);
+    const now = new Date();
 
-    await supabaseAdmin
-      .from('admin_sessions')
-      .insert({
-        admin_id: admin.id,
-        session_token: sessionId,
-        ip_address: ip,
-        user_agent: userAgent,
-        expires_at: expiresAt.toISOString(),
-        last_activity: new Date().toISOString(),
-        is_active: true,
-      });
+    await adminSessionQueries.create({
+      id: sessionId,
+      adminId: admin.id,
+      sessionToken: sessionId,
+      ipAddress: ip,
+      userAgent: userAgent,
+      expiresAt: expiresAt,
+      lastActivity: now,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
 
     // Log successful login
-    await supabaseAdmin.from('user_audit_logs').insert({
-      user_id: admin.id,
-      action: 'login_success',
-      entity_type: 'admin',
-      entity_id: admin.id,
-      success: true,
-      user_agent: userAgent,
-      metadata: { 
+    await auditLogQueries.create({
+      adminId: admin.id,
+      adminEmail: admin.email,
+      action: 'login',
+      resource: 'admin',
+      resourceId: admin.id.toString(),
+      ipAddress: ip,
+      userAgent: userAgent,
+      status: 'success',
+      details: { 
         email: admin.email,
-        session_id: sessionId,
-        ip_address: ip
+        sessionId: sessionId,
       }
     });
 

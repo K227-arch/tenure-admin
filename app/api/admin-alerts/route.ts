@@ -1,20 +1,17 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+import { adminAlertQueries } from '@/lib/db/queries';
+import { db } from '@/lib/db';
+import { adminAlerts } from '@/lib/db/schema';
 
 // GET - Fetch all alerts
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const { data: alerts, error } = await supabaseAdmin
-      .from('admin_alerts')
-      .select('*')
-      .order('created_at', { ascending: false });
+    const { searchParams } = new URL(request.url);
+    const unreadOnly = searchParams.get('unread_only') === 'true';
+    const limit = parseInt(searchParams.get('limit') || '100');
+    const offset = parseInt(searchParams.get('offset') || '0');
 
-    if (error) throw error;
+    const alerts = await adminAlertQueries.getAll(limit, offset, unreadOnly);
 
     return NextResponse.json({ alerts });
   } catch (error) {
@@ -27,28 +24,24 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { title, message, severity = 'info', status = 'draft' } = body;
+    const { title, message, type = 'info', severity = 'info' } = body;
 
     if (!title || !message) {
       return NextResponse.json({ error: 'Title and message are required' }, { status: 400 });
     }
 
-    const { data, error } = await supabaseAdmin
-      .from('admin_alerts')
-      .insert({
+    const [alert] = await db
+      .insert(adminAlerts)
+      .values({
         title,
         message,
+        type,
         severity,
-        status,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        read: false,
       })
-      .select()
-      .single();
+      .returning();
 
-    if (error) throw error;
-
-    return NextResponse.json({ alert: data }, { status: 201 });
+    return NextResponse.json({ alert }, { status: 201 });
   } catch (error) {
     console.error('Error creating alert:', error);
     return NextResponse.json({ error: 'Failed to create alert' }, { status: 500 });

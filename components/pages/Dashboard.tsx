@@ -58,10 +58,11 @@ export default function Dashboard() {
       supabase.removeChannel(channel);
     };
   }, [queryClient]);
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: fetchDashboardStats,
-    refetchInterval: 30000, // Refetch every 30 seconds for real-time data
+    refetchInterval: 5000, // Refetch every 5 seconds for real-time data
+    refetchIntervalInBackground: true, // Continue refetching even when tab is not focused
   });
 
   const handleRefresh = () => {
@@ -144,7 +145,7 @@ export default function Dashboard() {
         </div>
         <Button onClick={handleRefresh} variant="outline">
           <RefreshCw className="h-4 w-4 mr-2" />
-          Refresh Data
+          Refresh Now
         </Button>
       </div>
 
@@ -153,8 +154,14 @@ export default function Dashboard() {
         {stats.map((stat, index) => (
           <Card
             key={index}
-            className="relative overflow-hidden shadow-card hover:shadow-elevated transition-all duration-300"
+            className="relative overflow-hidden shadow-card hover:shadow-elevated transition-all duration-300 border-l-4 border-l-primary/20"
           >
+            <div className="absolute top-2 right-2">
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-[10px] text-muted-foreground">LIVE</span>
+              </div>
+            </div>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
                 {stat.title}
@@ -164,7 +171,7 @@ export default function Dashboard() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-foreground">
+              <div className="text-3xl font-bold text-foreground transition-all duration-300">
                 {stat.value}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
@@ -180,7 +187,13 @@ export default function Dashboard() {
         {/* Revenue Chart */}
         <Card className="shadow-card">
           <CardHeader>
-            <CardTitle>Revenue Trend</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>Revenue Trend</CardTitle>
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-xs text-muted-foreground">Real-time</span>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -216,7 +229,13 @@ export default function Dashboard() {
         {/* Member Growth Chart */}
         <Card className="shadow-card">
           <CardHeader>
-            <CardTitle>Member Growth</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>Member Growth</CardTitle>
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-xs text-muted-foreground">Real-time</span>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -322,7 +341,13 @@ export default function Dashboard() {
       {/* Recent Activity */}
       <Card className="shadow-card">
         <CardHeader>
-          <CardTitle>Recent Activity</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Recent Activity</CardTitle>
+            <div className="flex items-center gap-1">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <span className="text-xs text-muted-foreground">Live updates</span>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">

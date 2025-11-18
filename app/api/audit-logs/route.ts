@@ -1,12 +1,10 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { verify } from 'jsonwebtoken';
+import { auditLogQueries } from '@/lib/db/queries';
+
+export const dynamic = 'force-dynamic';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
 export async function GET(request: Request) {
   try {
@@ -29,94 +27,41 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '50');
-    const search = searchParams.get('search') || '';
     const action = searchParams.get('action') || '';
+    const resource = searchParams.get('resource') || '';
 
     const offset = (page - 1) * limit;
 
-    // Build query from session table
-    let query = supabaseAdmin
-      .from('session')
-      .select('*', { count: 'exact' })
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
-
-    if (search) {
-      query = query.or(`ip_address.ilike.%${search}%,user_agent.ilike.%${search}%`);
-    }
-
+    // Build filters
+    const filters: any = {};
     if (action && action !== 'all') {
-      if (action === 'active') {
-        query = query.gte('expires_at', new Date().toISOString());
-      } else if (action === 'expired') {
-        query = query.lt('expires_at', new Date().toISOString());
-      }
+      filters.action = action;
+    }
+    if (resource && resource !== 'all') {
+      filters.resource = resource;
     }
 
-    const { data: sessions, error, count } = await query;
+    // Fetch audit logs
+    const logs = await auditLogQueries.getAll(limit, offset, filters);
+    const stats = await auditLogQueries.getStats();
 
-    if (error) {
-      console.error('Error fetching sessions:', error);
-      return NextResponse.json({ 
-        error: 'Failed to fetch logs', 
-        details: error.message,
-        hint: error.hint 
-      }, { status: 500 });
-    }
-
-    // Fetch user details for each session
-    const transformedLogs = await Promise.all(
-      (sessions || []).map(async (session) => {
-        // Fetch user details from users table using user_id
-        let userName = 'Unknown User';
-        let userEmail = '';
-        
-        if (session.user_id) {
-          const { data: user } = await supabaseAdmin
-            .from('users')
-            .select('name, email')
-            .eq('id', session.user_id)
-            .single();
-          
-          if (user) {
-            userName = user.name || user.email || 'Unknown User';
-            userEmail = user.email || '';
-          }
-        }
-
-        // Determine action based on session state
-        let action = 'Session Created';
-        let status = 'success';
-        
-        const now = new Date();
-        const expiresAt = new Date(session.expires_at);
-        
-        if (expiresAt < now) {
-          action = 'Session Expired';
-          status = 'warning';
-        }
-
-        // Build details
-        const details = `IP: ${session.ip_address || 'N/A'} | Expires: ${expiresAt.toLocaleString()}`;
-
-        return {
-          id: session.id,
-          timestamp: session.created_at,
-          user: userName,
-          user_email: userEmail,
-          action: action,
-          details: details,
-          status: status,
-        };
-      })
-    );
+    // Transform logs for frontend
+    const transformedLogs = logs.map((log) => ({
+      id: log.id,
+      timestamp: log.createdAt,
+      user: log.adminEmail || 'System',
+      user_email: log.adminEmail || '',
+      action: log.action,
+      details: `${log.resource}${log.resourceId ? ` (${log.resourceId})` : ''} | IP: ${log.ipAddress || 'N/A'}`,
+      status: log.status,
+    }));
 
     return NextResponse.json({
       logs: transformedLogs,
       pagination: {
         page,
-        pages: Math.ceil((count || 0) / limit),
-        total: count || 0,
+        pages: Math.ceil((stats.total || 0) / limit),
+        total: stats.total || 0,
         limit,
       },
     });

@@ -74,7 +74,7 @@ export const adminSessionQueries = {
     const result = await db
       .select()
       .from(adminSessions)
-      .where(eq(adminSessions.token, token))
+      .where(eq(adminSessions.sessionToken, token))
       .limit(1);
     return result[0] || null;
   },
@@ -92,7 +92,7 @@ export const adminSessionQueries = {
   },
 
   deleteByToken: async (token: string) => {
-    await db.delete(adminSessions).where(eq(adminSessions.token, token));
+    await db.delete(adminSessions).where(eq(adminSessions.sessionToken, token));
   },
 
   deleteExpired: async () => {
@@ -359,7 +359,16 @@ export const transactionQueries = {
   },
 
   getStats: async () => {
-    const result = await db
+    // Get all transactions regardless of status
+    const allResult = await db
+      .select({
+        total: count(),
+        totalAmount: sql<number>`COALESCE(SUM(CAST(${transactions.amount} AS DECIMAL)), 0)`,
+      })
+      .from(transactions);
+    
+    // Also get completed only
+    const completedResult = await db
       .select({
         total: count(),
         totalAmount: sql<number>`COALESCE(SUM(CAST(${transactions.amount} AS DECIMAL)), 0)`,
@@ -367,7 +376,13 @@ export const transactionQueries = {
       .from(transactions)
       .where(eq(transactions.status, 'completed'));
 
-    return result[0];
+    console.log('Transaction Stats:', {
+      all: allResult[0],
+      completed: completedResult[0]
+    });
+
+    // Return all transactions for now to see the total
+    return allResult[0];
   },
 };
 

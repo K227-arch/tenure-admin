@@ -1,11 +1,7 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { generate2FACode, hashCode, getCodeExpiration } from '@/lib/utils/2fa';
 import { send2FAEmail } from '@/lib/utils/send-email';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+import { adminAccountQueries, twoFactorAuthQueries } from '@/lib/db/queries';
 
 export async function POST(request: Request) {
   try {
@@ -19,13 +15,9 @@ export async function POST(request: Request) {
     }
 
     // Get admin details
-    const { data: admin, error: adminError } = await supabaseAdmin
-      .from('admin')
-      .select('email')
-      .eq('id', adminId)
-      .single();
+    const admin = await adminAccountQueries.findById(adminId);
 
-    if (adminError || !admin) {
+    if (!admin) {
       return NextResponse.json(
         { error: 'Admin not found' },
         { status: 404 }
@@ -38,23 +30,13 @@ export async function POST(request: Request) {
     const expiresAt = getCodeExpiration(10); // 10 minutes
 
     // Store the code
-    const { error: codeError } = await supabaseAdmin
-      .from('admin_2fa_codes')
-      .insert({
-        admin_id: adminId,
-        code: codeHash,
-        expires_at: expiresAt.toISOString(),
-        used: false,
-        attempts: 0,
-      });
-
-    if (codeError) {
-      console.error('Error storing 2FA setup code:', codeError);
-      return NextResponse.json(
-        { error: 'Failed to generate verification code' },
-        { status: 500 }
-      );
-    }
+    await twoFactorAuthQueries.create({
+      adminId: adminId,
+      code: codeHash,
+      expiresAt: expiresAt,
+      used: false,
+      attempts: 0,
+    });
 
     // Send code via email
     const emailResult = await send2FAEmail(admin.email, setupCode, 'setup');

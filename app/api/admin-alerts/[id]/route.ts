@@ -1,36 +1,29 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { adminAlertQueries } from '@/lib/db/queries';
+import { db } from '@/lib/db';
+import { adminAlerts } from '@/lib/db/schema';
+import { eq } from 'drizzle-orm';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
-
-// PUT - Update alert
+// PUT - Update alert (mark as read)
 export async function PUT(
   request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
     const body = await request.json();
-    const { title, message, severity, status } = body;
+    const { readBy } = body;
 
-    const { data, error } = await supabaseAdmin
-      .from('admin_alerts')
-      .update({
-        title,
-        message,
-        severity,
-        status,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', params.id)
+    if (readBy) {
+      await adminAlertQueries.markAsRead(params.id, readBy);
+    }
+
+    const [alert] = await db
       .select()
-      .single();
+      .from(adminAlerts)
+      .where(eq(adminAlerts.id, params.id))
+      .limit(1);
 
-    if (error) throw error;
-
-    return NextResponse.json({ alert: data });
+    return NextResponse.json({ alert });
   } catch (error) {
     console.error('Error updating alert:', error);
     return NextResponse.json({ error: 'Failed to update alert' }, { status: 500 });
@@ -43,12 +36,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { error } = await supabaseAdmin
-      .from('admin_alerts')
-      .delete()
-      .eq('id', params.id);
-
-    if (error) throw error;
+    await adminAlertQueries.delete(params.id);
 
     return NextResponse.json({ success: true });
   } catch (error) {
