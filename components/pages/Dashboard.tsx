@@ -94,9 +94,9 @@ export default function Dashboard() {
       gradient: "bg-gradient-primary",
     },
     {
-      title: "Online Now",
-      value: activityData?.metrics?.onlineNow?.toString() || "0",
-      change: "Users currently active",
+      title: "Recently Active",
+      value: data?.stats?.onlineNow?.toString() || "0",
+      change: "Users active in last 15 minutes",
       icon: AlertCircle,
       gradient: "bg-gradient-success",
     },

@@ -53,7 +53,14 @@ export async function GET() {
 
     // Calculate stats
     const activeMembers = userStats.total || 0;
-    const onlineNow = sessionStats.active || 0;
+    
+    // Count users who were active in the last 15 minutes (recently active)
+    const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+    const recentlyActiveUsers = users.filter((user: any) => {
+      const lastActive = new Date(user.updatedAt);
+      return lastActive >= fifteenMinutesAgo;
+    });
+    const onlineNow = recentlyActiveUsers.length;
     
     console.log('Dashboard Stats (from user_payments via Drizzle):', {
       totalRevenue,
