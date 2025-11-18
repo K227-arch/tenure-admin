@@ -125,13 +125,13 @@ export async function POST(request: Request) {
 
     // Log 2FA setup
     await auditLogQueries.create({
+      adminId: admin.id,
       adminEmail: admin.email,
       action: 'create',
       resource: '2fa_setup',
       resourceId: admin.id.toString(),
       ipAddress: ip,
       userAgent: userAgent,
-      status: 'success',
       status: 'success',
       details: { 
         email: admin.email,

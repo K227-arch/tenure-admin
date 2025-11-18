@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getStripeStats } from '@/lib/integrations/stripe';
 import { getTwilioStats } from '@/lib/integrations/twilio';
 import { getEmailStats } from '@/lib/integrations/email';
-import { userQueries, subscriptionQueries, transactionQueries } from '@/lib/db/queries';
+import { userQueries, subscriptionQueries, adminSessionQueries, userPaymentQueries } from '@/lib/db/queries';
 
 // Helper function to calculate time ago
 function getTimeAgo(date: Date): string {
@@ -39,24 +39,28 @@ export async function GET() {
     // Get stats from Drizzle
     const userStats = await userQueries.getStats();
     const subscriptionStats = await subscriptionQueries.getStats();
-    const transactionStats = await transactionQueries.getStats();
+    const sessionStats = await adminSessionQueries.getStats();
+    const paymentStats = await userPaymentQueries.getStats();
+
+    // Calculate total revenue from user_payments table using Drizzle
+    const totalRevenue = parseFloat(paymentStats.totalAmount?.toString() || '0');
+    const totalTransactions = paymentStats.total || 0;
 
     // Get all data for charts
     const users = await userQueries.getAll(1000, 0);
     const subscriptionsData = await subscriptionQueries.getAll(1000, 0);
-    const transactionsData = await transactionQueries.getAll(1000, 0);
+    const paymentsData = await userPaymentQueries.getAll(1000, 0);
 
     // Calculate stats
-    const totalRevenue = transactionStats.totalAmount || 0;
     const activeMembers = userStats.total || 0;
-    const totalTransactions = transactionStats.total || 0;
+    const onlineNow = sessionStats.active || 0;
     
-    console.log('Dashboard Stats:', {
+    console.log('Dashboard Stats (from user_payments via Drizzle):', {
       totalRevenue,
-      totalRevenueType: typeof totalRevenue,
-      transactionStats,
+      paymentStats,
       activeMembers,
-      totalTransactions
+      totalTransactions,
+      onlineNow
     });
 
     // Generate real chart data based on database records
@@ -72,14 +76,14 @@ export async function GET() {
       
       const monthName = monthStart.toLocaleDateString('en-US', { month: 'short' });
       
-      // Calculate revenue for this month
-      const monthTransactions = transactionsData.filter((t: any) => {
-        const txDate = new Date(t.transaction.createdAt);
-        return txDate >= monthStart && txDate <= monthEnd && t.transaction.status === 'completed';
+      // Calculate revenue for this month from user_payments
+      const monthPayments = paymentsData.filter((p: any) => {
+        const payDate = new Date(p.payment.createdAt);
+        return payDate >= monthStart && payDate <= monthEnd;
       });
       
-      const monthRevenue = monthTransactions.reduce((sum: number, t: any) => 
-        sum + parseFloat(t.transaction.amount.toString()), 0
+      const monthRevenue = monthPayments.reduce((sum: number, p: any) => 
+        sum + (parseFloat(p.payment.amount.toString()) || 0), 0
       );
       
       // Calculate active subscriptions for this month
@@ -115,9 +119,9 @@ export async function GET() {
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     ).slice(0, 3);
     
-    // Get recent transactions (last 3)
-    const recentTransactions = [...transactionsData].sort((a: any, b: any) => 
-      new Date(b.transaction.createdAt).getTime() - new Date(a.transaction.createdAt).getTime()
+    // Get recent payments (last 3)
+    const recentPayments = [...paymentsData].sort((a: any, b: any) => 
+      new Date(b.payment.createdAt).getTime() - new Date(a.payment.createdAt).getTime()
     ).slice(0, 3);
     
     // Get recent subscriptions (last 2)
@@ -136,11 +140,11 @@ export async function GET() {
     });
 
     // Add recent transactions
-    recentTransactions.forEach((t: any) => {
-      const timeAgo = getTimeAgo(new Date(t.transaction.createdAt));
+    recentPayments.forEach((p: any) => {
+      const timeAgo = getTimeAgo(new Date(p.payment.createdAt));
       recentActivity.push({
-        action: `Payment processed ($${t.transaction.amount})`,
-        user: t.user?.name || t.user?.email || 'Unknown User',
+        action: `Payment processed ($${p.payment.amount})`,
+        user: p.user?.name || p.user?.email || 'Unknown User',
         time: timeAgo
       });
     });
@@ -175,6 +179,7 @@ export async function GET() {
         totalRevenue: `$${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
         activeMembers,
         totalTransactions,
+        onlineNow,
         revenueChange: '+12.5% from last month',
         memberChange: `+${Math.floor(Math.random() * 10) + 1} new this week`,
         transactionChange: '+8.3% from last month'

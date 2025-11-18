@@ -176,6 +176,22 @@ export const adminAlerts = pgTable('admin_alerts', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
+// User Payments Table
+export const userPayments = pgTable('user_payments', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  amount: decimal('amount', { precision: 10, scale: 2 }).notNull(),
+  currency: varchar('currency', { length: 3 }).default('USD'),
+  status: varchar('status', { length: 50 }).notNull(),
+  paymentType: varchar('payment_type', { length: 50 }),
+  provider: varchar('provider', { length: 50 }),
+  paymentDate: timestamp('payment_date', { withTimezone: true }),
+  metadata: jsonb('metadata'),
+  isFirstPayment: boolean('is_first_payment').default(false),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 // Export types
 export type AdminAccount = typeof adminAccounts.$inferSelect;
 export type NewAdminAccount = typeof adminAccounts.$inferInsert;
@@ -199,3 +215,5 @@ export type BillingSchedule = typeof billingSchedules.$inferSelect;
 export type NewBillingSchedule = typeof billingSchedules.$inferInsert;
 export type AdminAlert = typeof adminAlerts.$inferSelect;
 export type NewAdminAlert = typeof adminAlerts.$inferInsert;
+export type UserPayment = typeof userPayments.$inferSelect;
+export type NewUserPayment = typeof userPayments.$inferInsert;

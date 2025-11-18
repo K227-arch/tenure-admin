@@ -12,6 +12,7 @@ import {
   membershipQueue,
   billingSchedules,
   adminAlerts,
+  userPayments,
   type NewAdminAccount,
   type NewAdminSession,
   type NewTwoFactorAuth,
@@ -19,6 +20,7 @@ import {
   type NewUser,
   type NewSubscription,
   type NewTransaction,
+  type NewUserPayment,
 } from './schema';
 
 // Admin Account Queries
@@ -466,7 +468,7 @@ export const adminAlertQueries = {
     return await query.orderBy(desc(adminAlerts.createdAt)).limit(limit).offset(offset);
   },
 
-  markAsRead: async (id: string, readBy: string) => {
+  markAsRead: async (id: string, readBy: number) => {
     await db
       .update(adminAlerts)
       .set({ read: true, readBy, readAt: new Date() })
@@ -475,5 +477,61 @@ export const adminAlertQueries = {
 
   delete: async (id: string) => {
     await db.delete(adminAlerts).where(eq(adminAlerts.id, id));
+  },
+};
+
+
+// User Payment Queries
+export const userPaymentQueries = {
+  getAll: async (limit = 100, offset = 0, filters?: {
+    userId?: string;
+    status?: string;
+    startDate?: Date;
+    endDate?: Date;
+  }) => {
+    let query = db
+      .select({
+        payment: userPayments,
+        user: users,
+      })
+      .from(userPayments)
+      .leftJoin(users, eq(userPayments.userId, users.id));
+
+    if (filters) {
+      const conditions = [];
+      if (filters.userId) conditions.push(eq(userPayments.userId, filters.userId));
+      if (filters.status) conditions.push(eq(userPayments.status, filters.status));
+      if (filters.startDate) conditions.push(gte(userPayments.createdAt, filters.startDate));
+      if (filters.endDate) conditions.push(lte(userPayments.createdAt, filters.endDate));
+
+      if (conditions.length > 0) {
+        query = query.where(and(...conditions)) as any;
+      }
+    }
+
+    return await query.orderBy(desc(userPayments.createdAt)).limit(limit).offset(offset);
+  },
+
+  getStats: async () => {
+    const result = await db
+      .select({
+        total: count(),
+        totalAmount: sql<number>`COALESCE(SUM(CAST(${userPayments.amount} AS DECIMAL)), 0)`,
+      })
+      .from(userPayments);
+
+    return result[0];
+  },
+
+  getRevenueByStatus: async (status: string) => {
+    const result = await db
+      .select({
+        total: count(),
+        totalAmount: sql<number>`COALESCE(SUM(CAST(${userPayments.amount} AS DECIMAL)), 0)`,
+      })
+      .from(userPayments)
+      .where(eq(userPayments.status, status));
+
+    return result[0];
   },
 };
