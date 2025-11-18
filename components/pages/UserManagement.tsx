@@ -52,7 +52,7 @@ import { exportToCSV, exportToPDF, formatDataForExport } from "@/lib/utils/expor
 async function fetchUsers(page = 1, search = '', status = '', role = '') {
   const params = new URLSearchParams({
     page: page.toString(),
-    limit: '10',
+    limit: '1000', // Fetch all users
     ...(search && { search }),
     ...(status && status !== 'all' && { status }),
     ...(role && role !== 'all' && { role })
