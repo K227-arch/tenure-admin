@@ -435,112 +435,7 @@ export default function SubscriptionManagement() {
         </Card>
       </div>
 
-      {/* Data Visualizations */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Subscription Trends Chart */}
-        <Card className="shadow-card">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              Subscription Trends
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={trendData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
-                <YAxis stroke="hsl(var(--muted-foreground))" />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--card))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "var(--radius)",
-                  }}
-                />
-                <Legend />
-                <Line type="monotone" dataKey="active" stroke="hsl(var(--success))" strokeWidth={2} name="Active" />
-                <Line type="monotone" dataKey="canceled" stroke="hsl(var(--destructive))" strokeWidth={2} name="Canceled" />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* Subscription Distribution Pie Chart */}
-        <Card className="shadow-card">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CreditCard className="h-5 w-5" />
-              Subscription Distribution
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={[
-                    { name: 'Active', value: stats.active, color: 'hsl(var(--success))' },
-                    { name: 'Canceled', value: stats.canceled, color: 'hsl(var(--destructive))' },
-                    { name: 'Monthly', value: stats.monthly, color: 'hsl(var(--primary))' },
-                    { name: 'Yearly', value: stats.yearly, color: 'hsl(var(--accent))' },
-                  ]}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {[
-                    { name: 'Active', value: stats.active, color: '#22c55e' },
-                    { name: 'Canceled', value: stats.canceled, color: '#ef4444' },
-                    { name: 'Monthly', value: stats.monthly, color: '#3b82f6' },
-                    { name: 'Yearly', value: stats.yearly, color: '#8b5cf6' },
-                  ].map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--card))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "var(--radius)",
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Monthly Revenue Summary */}
-      <Card className="shadow-card">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <DollarSign className="h-5 w-5" />
-            Monthly Revenue Summary
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={revenueData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
-              <YAxis stroke="hsl(var(--muted-foreground))" />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: "var(--radius)",
-                }}
-                formatter={(value: any) => `$${value.toFixed(2)}`}
-              />
-              <Bar dataKey="revenue" fill="hsl(var(--primary))" name="Revenue" />
-            </BarChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
+     
 
       {/* Filters */}
       <Card className="shadow-card">
@@ -719,6 +614,113 @@ export default function SubscriptionManagement() {
       </Card>
 
       {/* Edit Subscription Dialog */}
+      {/* Data Visualizations */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Subscription Trends Chart */}
+        <Card className="shadow-card">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5" />
+              Subscription Trends
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={trendData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
+                <YAxis stroke="hsl(var(--muted-foreground))" />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "var(--radius)",
+                  }}
+                />
+                <Legend />
+                <Line type="monotone" dataKey="active" stroke="hsl(var(--success))" strokeWidth={2} name="Active" />
+                <Line type="monotone" dataKey="canceled" stroke="hsl(var(--destructive))" strokeWidth={2} name="Canceled" />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* Subscription Distribution Pie Chart */}
+        <Card className="shadow-card">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CreditCard className="h-5 w-5" />
+              Subscription Distribution
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={[
+                    { name: 'Active', value: stats.active, color: 'hsl(var(--success))' },
+                    { name: 'Canceled', value: stats.canceled, color: 'hsl(var(--destructive))' },
+                    { name: 'Monthly', value: stats.monthly, color: 'hsl(var(--primary))' },
+                    { name: 'Yearly', value: stats.yearly, color: 'hsl(var(--accent))' },
+                  ]}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {[
+                    { name: 'Active', value: stats.active, color: '#22c55e' },
+                    { name: 'Canceled', value: stats.canceled, color: '#ef4444' },
+                    { name: 'Monthly', value: stats.monthly, color: '#3b82f6' },
+                    { name: 'Yearly', value: stats.yearly, color: '#8b5cf6' },
+                  ].map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "var(--radius)",
+                  }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Monthly Revenue Summary */}
+      <Card className="shadow-card">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <DollarSign className="h-5 w-5" />
+            Monthly Revenue Summary
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={revenueData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
+              <YAxis stroke="hsl(var(--muted-foreground))" />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "hsl(var(--card))",
+                  border: "1px solid hsl(var(--border))",
+                  borderRadius: "var(--radius)",
+                }}
+                formatter={(value: any) => `$${value.toFixed(2)}`}
+              />
+              <Bar dataKey="revenue" fill="hsl(var(--primary))" name="Revenue" />
+            </BarChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
+
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
