@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { userQueries } from '@/lib/db/queries';
 import { db } from '@/lib/db';
-import { membershipQueue, billingSchedules, userContacts } from '@/lib/db/schema';
+import { membershipQueue, billingSchedules, userContacts, userAddresses } from '@/lib/db/schema';
 import { eq, desc } from 'drizzle-orm';
 
 export async function GET(request: NextRequest) {
@@ -111,6 +111,33 @@ export async function GET(request: NextRequest) {
         console.error(`Error fetching contacts for user ${u.id}:`, err);
       }
 
+      // Get user's address from user_addresses table
+      let userAddress = null;
+      try {
+        const addresses = await db
+          .select()
+          .from(userAddresses)
+          .where(eq(userAddresses.userId, u.id));
+
+        // Find primary address or first address
+        const primaryAddress = addresses.find(a => a.isPrimary);
+        const anyAddress = addresses[0];
+        const selectedAddress = primaryAddress || anyAddress;
+        
+        if (selectedAddress) {
+          userAddress = [
+            selectedAddress.streetAddress,
+            selectedAddress.addressLine2,
+            selectedAddress.city,
+            selectedAddress.state,
+            selectedAddress.postalCode,
+            selectedAddress.countryCode
+          ].filter(Boolean).join(', ');
+        }
+      } catch (err) {
+        console.error(`Error fetching addresses for user ${u.id}:`, err);
+      }
+
       return {
         id: u.id,
         email: u.email,
@@ -123,7 +150,7 @@ export async function GET(request: NextRequest) {
         avatar: u.image,
         image: u.image,
         phone: phoneNumber,
-        address: null,
+        address: userAddress,
         email_verified: u.emailVerified || false,
         two_factor_enabled: u.twoFactorEnabled || false,
         created_at: u.createdAt,

@@ -45,6 +45,7 @@ export default function Payouts() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedMember, setSelectedMember] = useState<any>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [tenureFilter, setTenureFilter] = useState<'all' | 'monthly' | 'yearly'>('all');
   const queryClient = useQueryClient();
 
   const { data, isLoading, error } = useQuery({
@@ -98,6 +99,14 @@ export default function Payouts() {
   const eligibleMembers = data?.queue?.members || [];
   const payoutHistory = data?.payouts?.payouts || [];
   
+  // Calculate monthly and yearly eligible members
+  const monthlyEligible = eligibleMembers.filter(m => 
+    m.tenure_type === 'monthly' || m.billing_cycle?.toLowerCase() === 'monthly'
+  );
+  const yearlyEligible = eligibleMembers.filter(m => 
+    m.tenure_type === 'yearly' || m.billing_cycle?.toLowerCase() === 'yearly' || m.months_completed >= 12
+  );
+  
   // Extract stats from API
   const totalPayoutPool = data?.payouts?.stats?.totalPayoutPool || 0;
   const nextPayoutDate = data?.payouts?.stats?.nextPayoutDate || 'TBD';
@@ -134,7 +143,7 @@ export default function Payouts() {
             Payout Management
           </h1>
           <p className="text-muted-foreground">
-            Manage 12-month tenure payouts and winner selection.
+            Manage monthly and yearly (12-month) tenure payouts and winner selection.
           </p>
         </div>
         <AlertDialog>
@@ -191,9 +200,14 @@ export default function Payouts() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-foreground">{eligibleMembers.length}</div>
-            <p className="text-sm text-muted-foreground mt-1">
-              Completed 12 months
-            </p>
+            <div className="flex gap-4 mt-2">
+              <div>
+                <p className="text-sm text-muted-foreground">Monthly: {monthlyEligible.length}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Yearly: {yearlyEligible.length}</p>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
@@ -216,11 +230,43 @@ export default function Payouts() {
       {/* Eligible Members */}
       <Card className="shadow-card">
         <CardHeader>
-          <CardTitle>Eligible Members for Current Cycle</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Eligible Members for Current Cycle</CardTitle>
+            <div className="flex gap-2">
+              <Button
+                variant={tenureFilter === 'all' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setTenureFilter('all')}
+              >
+                All
+              </Button>
+              <Button
+                variant={tenureFilter === 'monthly' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setTenureFilter('monthly')}
+              >
+                Monthly
+              </Button>
+              <Button
+                variant={tenureFilter === 'yearly' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setTenureFilter('yearly')}
+              >
+                Yearly (12 Months)
+              </Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {eligibleMembers.map((member) => (
+            {eligibleMembers
+              .filter((member) => {
+                if (tenureFilter === 'all') return true;
+                if (tenureFilter === 'monthly') return member.tenure_type === 'monthly' || member.billing_cycle?.toLowerCase() === 'monthly';
+                if (tenureFilter === 'yearly') return member.tenure_type === 'yearly' || member.billing_cycle?.toLowerCase() === 'yearly' || member.months_completed >= 12;
+                return true;
+              })
+              .map((member) => (
               <div
                 key={member.id}
                 className="flex items-center justify-between border-b border-border pb-4 last:border-0"

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { db } from '@/lib/db';
-import { membershipQueue, billingSchedules, userContacts } from '@/lib/db/schema';
+import { membershipQueue, billingSchedules, userContacts, userAddresses } from '@/lib/db/schema';
 import { eq, desc } from 'drizzle-orm';
 
 export async function GET(
@@ -106,9 +106,37 @@ export async function GET(
       console.error(`Error fetching contacts for user ${params.id}:`, err);
     }
 
+    // Get user's address from user_addresses table
+    let userAddress = null;
+    try {
+      const addresses = await db
+        .select()
+        .from(userAddresses)
+        .where(eq(userAddresses.userId, params.id));
+
+      // Find primary address or first address
+      const primaryAddress = addresses.find(a => a.isPrimary);
+      const anyAddress = addresses[0];
+      const selectedAddress = primaryAddress || anyAddress;
+      
+      if (selectedAddress) {
+        userAddress = [
+          selectedAddress.addressLine1,
+          selectedAddress.addressLine2,
+          selectedAddress.city,
+          selectedAddress.state,
+          selectedAddress.postalCode,
+          selectedAddress.country
+        ].filter(Boolean).join(', ');
+      }
+    } catch (err) {
+      console.error(`Error fetching addresses for user ${params.id}:`, err);
+    }
+
     const enrichedUser = {
       ...user,
       phone: phoneNumber,
+      address: userAddress,
       ...paymentData,
     };
 

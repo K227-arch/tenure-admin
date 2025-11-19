@@ -43,7 +43,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Search, Filter, Eye, Mail, Phone, User, Clock, Download, FileText, RefreshCw } from "lucide-react";
+import { Search, Filter, Eye, Mail, Phone, User, Clock, Download, FileText, RefreshCw, MapPin } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase/client";
@@ -344,6 +344,7 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
                 <TableRow>
                   <TableHead>User</TableHead>
                   <TableHead>Contact</TableHead>
+                  <TableHead>Address</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Activity</TableHead>
                   <TableHead>Join Date</TableHead>
@@ -394,6 +395,14 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
                       </div>
                     </TableCell>
                     <TableCell>
+                      <div className="flex items-start text-sm max-w-[200px]">
+                        <MapPin className="h-3 w-3 mr-2 text-muted-foreground flex-shrink-0 mt-0.5" />
+                        <span className="text-muted-foreground truncate">
+                          {user.address || 'No address'}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
                       <Badge
                         variant={
                           user.status === "Active" ? "default" : 
@@ -441,7 +450,7 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
                   </TableRow>
                 )}) : (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8">
+                    <TableCell colSpan={8} className="text-center py-8">
                       <p className="text-muted-foreground">No users found. Check your database connection or search criteria.</p>
                     </TableCell>
                   </TableRow>

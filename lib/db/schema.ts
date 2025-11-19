@@ -204,6 +204,22 @@ export const userContacts = pgTable('user_contacts', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
+// User Addresses Table
+export const userAddresses = pgTable('user_addresses', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  streetAddress: varchar('street_address', { length: 255 }).notNull(),
+  addressLine2: varchar('address_line_2', { length: 255 }),
+  city: varchar('city', { length: 100 }).notNull(),
+  state: varchar('state', { length: 100 }).notNull(),
+  postalCode: varchar('postal_code', { length: 20 }).notNull(),
+  countryCode: varchar('country_code', { length: 10 }),
+  addressType: varchar('address_type', { length: 50 }),
+  isPrimary: boolean('is_primary').default(false),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+});
+
 // Export types
 export type AdminAccount = typeof adminAccounts.$inferSelect;
 export type NewAdminAccount = typeof adminAccounts.$inferInsert;
@@ -231,3 +247,5 @@ export type UserPayment = typeof userPayments.$inferSelect;
 export type NewUserPayment = typeof userPayments.$inferInsert;
 export type UserContact = typeof userContacts.$inferSelect;
 export type NewUserContact = typeof userContacts.$inferInsert;
+export type UserAddress = typeof userAddresses.$inferSelect;
+export type NewUserAddress = typeof userAddresses.$inferInsert;
