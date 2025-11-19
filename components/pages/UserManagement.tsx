@@ -623,16 +623,6 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
                       {selectedUser.email_verified ? 'Verified' : 'Unverified'}
                     </Badge>
                   </div>
-                  <div>
-                    <Label className="text-sm font-medium text-muted-foreground">Two-Factor Auth</Label>
-                    <Badge variant={selectedUser.two_factor_enabled ? "default" : "secondary"}>
-                      {selectedUser.two_factor_enabled ? 'Enabled' : 'Disabled'}
-                    </Badge>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium text-muted-foreground">Member Type</Label>
-                    <p className="text-sm">{selectedUser.membership_type || 'Standard'}</p>
-                  </div>
                 </div>
               </div>
 
@@ -644,15 +634,9 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
                     <Label className="text-sm font-medium text-muted-foreground">Address</Label>
                     <p className="text-sm">{selectedUser.address || 'Not provided'}</p>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-sm font-medium text-muted-foreground">Role</Label>
-                      <p className="text-sm">{selectedUser.role || 'User'}</p>
-                    </div>
-                    <div>
-                      <Label className="text-sm font-medium text-muted-foreground">Auth User ID</Label>
-                      <p className="text-sm font-mono text-xs">{selectedUser.auth_user_id || 'Not linked'}</p>
-                    </div>
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Role</Label>
+                    <p className="text-sm">{selectedUser.role || 'User'}</p>
                   </div>
                 </div>
               </div>
