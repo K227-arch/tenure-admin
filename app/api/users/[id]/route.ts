@@ -41,11 +41,14 @@ export async function GET(
         .where(eq(billingSchedules.userId, params.id))
         .orderBy(desc(billingSchedules.createdAt));
 
-      // Filter by billing cycle
-      const monthlySchedules = userBillingSchedules.filter(s => s.billingCycle === 'monthly');
-      const yearlySchedules = userBillingSchedules.filter(
-        s => s.billingCycle === 'yearly' || s.billingCycle === 'annual'
+      // Filter by billing cycle (case-insensitive)
+      const monthlySchedules = userBillingSchedules.filter(s => 
+        s.billingCycle?.toLowerCase() === 'monthly'
       );
+      const yearlySchedules = userBillingSchedules.filter(s => {
+        const cycle = s.billingCycle?.toLowerCase();
+        return cycle === 'yearly' || cycle === 'annual';
+      });
 
       // Get the most recent monthly schedule
       const lastMonthlySchedule = monthlySchedules.find(s => s.createdAt);
