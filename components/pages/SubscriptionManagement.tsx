@@ -299,9 +299,13 @@ export default function SubscriptionManagement() {
 
   const pagination = { page: currentPage, pages, total, limit };
 
-  // Separate subscriptions by billing cycle (from filtered results)
-  const monthlySubscriptions = allSubscriptions.filter(s => s.billing_cycle === 'MONTHLY');
-  const yearlySubscriptions = allSubscriptions.filter(s => s.billing_cycle === 'YEARLY');
+  // Separate subscriptions by billing cycle (from filtered results) - case insensitive
+  const monthlySubscriptions = allSubscriptions.filter(s => 
+    s.billing_cycle?.toUpperCase() === 'MONTHLY'
+  );
+  const yearlySubscriptions = allSubscriptions.filter(s => 
+    s.billing_cycle?.toUpperCase() === 'YEARLY' || s.billing_cycle?.toUpperCase() === 'ANNUAL'
+  );
 
   // Calculate stats from all subscriptions (not filtered)
   const stats = {
