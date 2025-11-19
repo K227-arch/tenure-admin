@@ -684,6 +684,81 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
                   </div>
                 </div>
               </div>
+
+              {/* Payment Information */}
+              <div className="space-y-4">
+                <h4 className="font-semibold text-foreground border-b pb-2">Payment Information</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Monthly Payments */}
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Last Monthly Payment</Label>
+                    <p className="text-sm">
+                      {selectedUser.last_monthly_payment 
+                        ? new Date(selectedUser.last_monthly_payment).toLocaleDateString()
+                        : 'No monthly payments'}
+                    </p>
+                    {selectedUser.monthly_amount && (
+                      <p className="text-xs text-muted-foreground">
+                        ${parseFloat(selectedUser.monthly_amount).toFixed(2)}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Next Monthly Payment</Label>
+                    <p className="text-sm">
+                      {selectedUser.next_monthly_payment 
+                        ? new Date(selectedUser.next_monthly_payment).toLocaleDateString()
+                        : 'No upcoming payment'}
+                    </p>
+                  </div>
+                  
+                  {/* Annual Payments */}
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Last Annual Payment</Label>
+                    <p className="text-sm">
+                      {selectedUser.last_annual_payment 
+                        ? new Date(selectedUser.last_annual_payment).toLocaleDateString()
+                        : 'No annual payments'}
+                    </p>
+                    {selectedUser.annual_amount && (
+                      <p className="text-xs text-muted-foreground">
+                        ${parseFloat(selectedUser.annual_amount).toFixed(2)}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Next Annual Payment</Label>
+                    <p className="text-sm">
+                      {selectedUser.next_annual_payment 
+                        ? new Date(selectedUser.next_annual_payment).toLocaleDateString()
+                        : 'No upcoming payment'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Membership Queue */}
+              {selectedUser.queue_position && (
+                <div className="space-y-4">
+                  <h4 className="font-semibold text-foreground border-b pb-2">Membership Queue</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">Queue Position</Label>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="text-lg">
+                          #{selectedUser.queue_position}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">Queue Status</Label>
+                      <Badge variant={selectedUser.queue_status === 'waiting' ? 'secondary' : 'default'}>
+                        {selectedUser.queue_status || 'Unknown'}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
           

@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { db } from '@/lib/db';
+import { membershipQueue, billingSchedules, userContacts } from '@/lib/db/schema';
+import { eq, desc } from 'drizzle-orm';
 
 export async function GET(
   request: NextRequest,
@@ -19,7 +22,94 @@ export async function GET(
       );
     }
 
-    return NextResponse.json(user);
+    let paymentData = {
+      last_monthly_payment: null,
+      next_monthly_payment: null,
+      last_annual_payment: null,
+      next_annual_payment: null,
+      monthly_amount: null,
+      annual_amount: null,
+      queue_position: null,
+      queue_status: null,
+    };
+
+    try {
+      // Get user's billing schedules from user_billing_schedules table
+      const userBillingSchedules = await db
+        .select()
+        .from(billingSchedules)
+        .where(eq(billingSchedules.userId, params.id))
+        .orderBy(desc(billingSchedules.createdAt));
+
+      // Filter by billing cycle
+      const monthlySchedules = userBillingSchedules.filter(s => s.billingCycle === 'monthly');
+      const yearlySchedules = userBillingSchedules.filter(
+        s => s.billingCycle === 'yearly' || s.billingCycle === 'annual'
+      );
+
+      // Get the most recent monthly schedule
+      const lastMonthlySchedule = monthlySchedules.find(s => s.createdAt);
+      // Get active monthly schedule with next billing date
+      const nextMonthlySchedule = monthlySchedules.find(s => s.isActive && s.nextBillingDate);
+
+      // Get the most recent yearly schedule
+      const lastYearlySchedule = yearlySchedules.find(s => s.createdAt);
+      // Get active yearly schedule with next billing date
+      const nextYearlySchedule = yearlySchedules.find(s => s.isActive && s.nextBillingDate);
+
+      paymentData = {
+        ...paymentData,
+        last_monthly_payment: lastMonthlySchedule?.createdAt || null,
+        next_monthly_payment: nextMonthlySchedule?.nextBillingDate || null,
+        last_annual_payment: lastYearlySchedule?.createdAt || null,
+        next_annual_payment: nextYearlySchedule?.nextBillingDate || null,
+        monthly_amount: lastMonthlySchedule?.amount || null,
+        annual_amount: lastYearlySchedule?.amount || null,
+      };
+    } catch (err) {
+      console.error(`Error fetching billing schedule data for user ${params.id}:`, err);
+    }
+
+    try {
+      // Get queue position - separate try/catch in case table doesn't exist
+      const queueEntry = await db
+        .select()
+        .from(membershipQueue)
+        .where(eq(membershipQueue.userId, params.id))
+        .limit(1);
+
+      if (queueEntry && queueEntry.length > 0) {
+        paymentData.queue_position = queueEntry[0].position || null;
+        paymentData.queue_status = queueEntry[0].status || null;
+      }
+    } catch (err) {
+      // Silently fail if membership_queue table doesn't exist or has issues
+      console.error(`Error fetching queue data for user ${params.id}:`, err);
+    }
+
+    // Get user's phone number from user_contacts table
+    let phoneNumber = null;
+    try {
+      const contacts = await db
+        .select()
+        .from(userContacts)
+        .where(eq(userContacts.userId, params.id));
+
+      // Find primary phone or first phone contact
+      const primaryPhone = contacts.find(c => c.contactType === 'phone' && c.isPrimary);
+      const anyPhone = contacts.find(c => c.contactType === 'phone');
+      phoneNumber = primaryPhone?.contactValue || anyPhone?.contactValue || null;
+    } catch (err) {
+      console.error(`Error fetching contacts for user ${params.id}:`, err);
+    }
+
+    const enrichedUser = {
+      ...user,
+      phone: phoneNumber,
+      ...paymentData,
+    };
+
+    return NextResponse.json(enrichedUser);
   } catch (error) {
     console.error('Error fetching user:', error);
     return NextResponse.json(

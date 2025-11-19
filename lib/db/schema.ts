@@ -192,6 +192,18 @@ export const userPayments = pgTable('user_payments', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+// User Contacts Table
+export const userContacts = pgTable('user_contacts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  contactType: varchar('contact_type', { length: 50 }),
+  contactValue: varchar('contact_value', { length: 255 }),
+  isPrimary: boolean('is_primary').default(false),
+  isVerified: boolean('is_verified').default(false),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
 // Export types
 export type AdminAccount = typeof adminAccounts.$inferSelect;
 export type NewAdminAccount = typeof adminAccounts.$inferInsert;
@@ -217,3 +229,5 @@ export type AdminAlert = typeof adminAlerts.$inferSelect;
 export type NewAdminAlert = typeof adminAlerts.$inferInsert;
 export type UserPayment = typeof userPayments.$inferSelect;
 export type NewUserPayment = typeof userPayments.$inferInsert;
+export type UserContact = typeof userContacts.$inferSelect;
+export type NewUserContact = typeof userContacts.$inferInsert;
