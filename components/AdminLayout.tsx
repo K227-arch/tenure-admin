@@ -22,6 +22,8 @@ import {
   Moon,
   Shield,
   UserCog,
+  Menu,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -57,17 +59,30 @@ interface AdminLayoutProps {
 
 export function AdminLayout({ children }: AdminLayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
   const { adminUser, logout } = useAdminUser();
   const { theme, toggleTheme, isDark } = useTheme();
 
   return (
     <div className="flex min-h-screen w-full bg-background">
+      {/* Mobile Menu Overlay */}
+      {mobileMenuOpen && (
+        <div 
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed left-0 top-0 z-40 h-screen bg-sidebar transition-all duration-300 border-r border-sidebar-border",
-          collapsed ? "w-16" : "w-64"
+          "fixed left-0 top-0 z-50 h-screen bg-sidebar transition-all duration-300 border-r border-sidebar-border",
+          // Desktop
+          "hidden lg:block",
+          collapsed ? "lg:w-16" : "lg:w-64",
+          // Mobile
+          mobileMenuOpen ? "block w-64" : "hidden"
         )}
       >
         <div className="flex h-full flex-col">
@@ -79,20 +94,30 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                 <p className="text-xs text-sidebar-foreground/70">Admin Panel</p>
               </div>
             )}
-            <button
-              onClick={() => setCollapsed(!collapsed)}
-              className="rounded-lg p-2 hover:bg-sidebar-accent transition-colors"
-            >
-              {collapsed ? (
-                <ChevronRight className="h-5 w-5 text-sidebar-foreground" />
-              ) : (
-                <ChevronLeft className="h-5 w-5 text-sidebar-foreground" />
-              )}
-            </button>
+            <div className="flex items-center gap-2">
+              {/* Close button for mobile */}
+              <button
+                onClick={() => setMobileMenuOpen(false)}
+                className="lg:hidden rounded-lg p-2 hover:bg-sidebar-accent transition-colors"
+              >
+                <X className="h-5 w-5 text-sidebar-foreground" />
+              </button>
+              {/* Collapse button for desktop */}
+              <button
+                onClick={() => setCollapsed(!collapsed)}
+                className="hidden lg:block rounded-lg p-2 hover:bg-sidebar-accent transition-colors"
+              >
+                {collapsed ? (
+                  <ChevronRight className="h-5 w-5 text-sidebar-foreground" />
+                ) : (
+                  <ChevronLeft className="h-5 w-5 text-sidebar-foreground" />
+                )}
+              </button>
+            </div>
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 space-y-1 p-4">
+          <nav className="flex-1 space-y-1 p-4 overflow-y-auto">
             {navigationItems.map((item) => {
               // Special handling for Security & Monitoring (matches both /admin-sessions and /audit)
               const isActive = item.href === "/admin-sessions" 
@@ -102,6 +127,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                 <Link
                   key={item.name}
                   href={item.href}
+                  onClick={() => setMobileMenuOpen(false)}
                   className={cn(
                     "flex items-center gap-3 rounded-lg px-3 py-2.5 transition-all duration-200",
                     isActive
@@ -124,17 +150,28 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       <div
         className={cn(
           "flex-1 transition-all duration-300",
-          collapsed ? "ml-16" : "ml-64"
+          "lg:ml-16 lg:ml-64",
+          collapsed ? "lg:ml-16" : "lg:ml-64"
         )}
       >
         {/* Top Navbar */}
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-background px-6">
-          <div className="flex items-center gap-4">
+        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-background px-4 lg:px-6">
+          <div className="flex items-center gap-2 lg:gap-4">
+            {/* Mobile Menu Button */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="lg:hidden"
+              onClick={() => setMobileMenuOpen(true)}
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+            
             <div>
-              <h2 className="text-lg font-semibold text-blue-600">Home Solutions</h2>
-              <p className="text-xs text-muted-foreground">Admin Dashboard</p>
+              <h2 className="text-base lg:text-lg font-semibold text-blue-600">Home Solutions</h2>
+              <p className="text-xs text-muted-foreground hidden sm:block">Admin Dashboard</p>
             </div>
-            <div className="hidden md:block text-sm text-muted-foreground">
+            <div className="hidden xl:block text-sm text-muted-foreground">
               {new Date().toLocaleDateString('en-US', { 
                 weekday: 'long', 
                 year: 'numeric', 
@@ -145,13 +182,13 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           </div>
           
           {/* Profile Section */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 lg:gap-4">
             {/* Theme Toggle */}
             <Button 
               variant="ghost" 
               size="sm" 
               onClick={toggleTheme}
-              className="relative"
+              className="relative hidden sm:flex"
               title={`Switch to ${isDark ? 'light' : 'dark'} theme`}
             >
               {isDark ? (
@@ -162,7 +199,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             </Button>
 
             {/* Notifications */}
-            <Button variant="ghost" size="sm" className="relative">
+            <Button variant="ghost" size="sm" className="relative hidden sm:flex">
               <Bell className="h-4 w-4" />
               <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 text-xs">
                 3
@@ -172,8 +209,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             {/* Profile Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="flex items-center gap-3 px-3 py-2 h-auto">
-                  <div className="text-right hidden sm:block">
+                <Button variant="ghost" className="flex items-center gap-2 lg:gap-3 px-2 lg:px-3 py-2 h-auto">
+                  <div className="text-right hidden md:block">
                     <p className="text-sm font-medium text-foreground">{adminUser.name}</p>
                     <p className="text-xs text-muted-foreground">{adminUser.email}</p>
                   </div>
@@ -188,7 +225,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                       <div className="absolute -bottom-1 -right-1 h-3 w-3 rounded-full bg-green-500 border-2 border-background"></div>
                     )}
                   </div>
-                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  <ChevronDown className="h-4 w-4 text-muted-foreground hidden sm:block" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
@@ -204,6 +241,16 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem className="sm:hidden" onClick={toggleTheme}>
+                  {isDark ? <Sun className="mr-2 h-4 w-4" /> : <Moon className="mr-2 h-4 w-4" />}
+                  <span>Toggle Theme</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem className="sm:hidden">
+                  <Bell className="mr-2 h-4 w-4" />
+                  <span>Notifications</span>
+                  <Badge className="ml-auto">3</Badge>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="sm:hidden" />
                 <DropdownMenuItem>
                   <Settings className="mr-2 h-4 w-4" />
                   <span>Settings</span>
@@ -218,7 +265,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           </div>
         </header>
         
-        <main className="p-8">{children}</main>
+        <main className="p-4 sm:p-6 lg:p-8">{children}</main>
       </div>
     </div>
   );

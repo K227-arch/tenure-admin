@@ -134,23 +134,23 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 lg:space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-4xl font-bold text-foreground mb-2">Dashboard</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-2">Dashboard</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Welcome back! Here&apos;s an overview of your membership system with real-time Supabase data.
           </p>
         </div>
-        <Button onClick={handleRefresh} variant="outline">
+        <Button onClick={handleRefresh} variant="outline" className="w-full sm:w-auto">
           <RefreshCw className="h-4 w-4 mr-2" />
           Refresh Now
         </Button>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat, index) => (
           <Card
             key={index}
@@ -171,10 +171,10 @@ export default function Dashboard() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-foreground transition-all duration-300">
+              <div className="text-2xl sm:text-3xl font-bold text-foreground transition-all duration-300">
                 {stat.value}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-xs sm:text-sm text-muted-foreground mt-1">
                 {stat.change}
               </p>
             </CardContent>
@@ -183,12 +183,12 @@ export default function Dashboard() {
       </div>
 
       {/* Charts */}
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-2">
         {/* Revenue Chart */}
         <Card className="shadow-card">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle>Revenue Trend</CardTitle>
+              <CardTitle className="text-base sm:text-lg">Revenue Trend</CardTitle>
               <div className="flex items-center gap-1">
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                 <span className="text-xs text-muted-foreground">Real-time</span>
@@ -196,7 +196,8 @@ export default function Dashboard() {
             </div>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
+            <div className="w-full h-[200px] sm:h-[250px] lg:h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={revenueData}>
                 <defs>
                   <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
@@ -223,6 +224,7 @@ export default function Dashboard() {
                 />
               </AreaChart>
             </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
 
@@ -230,7 +232,7 @@ export default function Dashboard() {
         <Card className="shadow-card">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle>Member Growth</CardTitle>
+              <CardTitle className="text-base sm:text-lg">Member Growth</CardTitle>
               <div className="flex items-center gap-1">
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                 <span className="text-xs text-muted-foreground">Real-time</span>
@@ -238,7 +240,8 @@ export default function Dashboard() {
             </div>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
+            <div className="w-full h-[200px] sm:h-[250px] lg:h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
               <LineChart data={memberData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
@@ -266,13 +269,14 @@ export default function Dashboard() {
                 />
               </LineChart>
             </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Integration Status */}
       {data?.integrations && (
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-2">
           <Card className="shadow-card">
             <CardHeader>
               <CardTitle>Integration Status</CardTitle>

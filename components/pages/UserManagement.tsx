@@ -260,21 +260,21 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const pagination = { page: currentPage, pages, total, limit };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 lg:space-y-8">
       {/* Header */}
-      <div className="flex justify-between items-start">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
         <div>
-          <h1 className="text-4xl font-bold text-foreground mb-2 flex items-center gap-3">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-2 flex items-center gap-3">
             User Management
             {isFetching && (
               <RefreshCw className="h-5 w-5 animate-spin text-primary" />
             )}
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-sm sm:text-base text-muted-foreground">
             View and manage all members in your system.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
           <Button
             onClick={() => {
               const exportData = formatDataForExport(users, ['password', 'hash', 'salt']);
@@ -282,9 +282,11 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
               toast.success('Users exported to CSV!');
             }}
             variant="outline"
+            className="w-full sm:w-auto"
           >
             <Download className="h-4 w-4 mr-2" />
-            Export CSV
+            <span className="hidden sm:inline">Export CSV</span>
+            <span className="sm:hidden">CSV</span>
           </Button>
           <Button
             onClick={() => {
@@ -292,9 +294,11 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
               toast.success('Generating PDF...');
             }}
             variant="outline"
+            className="w-full sm:w-auto"
           >
             <FileText className="h-4 w-4 mr-2" />
-            Export PDF
+            <span className="hidden sm:inline">Export PDF</span>
+            <span className="sm:hidden">PDF</span>
           </Button>
         </div>
       </div>
@@ -302,7 +306,7 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
       {/* Filters */}
       <Card className="shadow-card">
         <CardContent className="pt-6">
-          <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -314,7 +318,7 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
               />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full md:w-[200px]">
+              <SelectTrigger className="w-full sm:w-[200px]">
                 <Filter className="h-4 w-4 mr-2" />
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
@@ -325,7 +329,7 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
                 <SelectItem value="suspended">Suspended</SelectItem>
               </SelectContent>
             </Select>
-            <Button onClick={handleSearch} className="w-full md:w-auto">
+            <Button onClick={handleSearch} className="w-full sm:w-auto">
               Search
             </Button>
           </div>
@@ -335,21 +339,21 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
       {/* Members Table */}
       <Card className="shadow-card" id="users-table-container">
         <CardHeader>
-          <CardTitle>Users ({pagination.total})</CardTitle>
+          <CardTitle className="text-base sm:text-lg">Users ({pagination.total})</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border">
+          <div className="rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>User</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Address</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Activity</TableHead>
-                  <TableHead>Join Date</TableHead>
-                  <TableHead className="text-right">Membership</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead className="min-w-[200px]">User</TableHead>
+                  <TableHead className="min-w-[200px]">Contact</TableHead>
+                  <TableHead className="min-w-[150px] hidden lg:table-cell">Address</TableHead>
+                  <TableHead className="min-w-[100px]">Status</TableHead>
+                  <TableHead className="min-w-[150px] hidden xl:table-cell">Activity</TableHead>
+                  <TableHead className="min-w-[120px] hidden md:table-cell">Join Date</TableHead>
+                  <TableHead className="text-right min-w-[120px] hidden sm:table-cell">Membership</TableHead>
+                  <TableHead className="text-right min-w-[120px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -394,7 +398,7 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden lg:table-cell">
                       <div className="flex items-start text-sm max-w-[200px]">
                         <MapPin className="h-3 w-3 mr-2 text-muted-foreground flex-shrink-0 mt-0.5" />
                         <span className="text-muted-foreground truncate">
@@ -412,7 +416,7 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
                         {user.status}
                       </Badge>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden xl:table-cell">
                       <div className="flex items-center text-sm">
                         <Clock className="h-3 w-3 mr-2 text-muted-foreground" />
                         <div>
@@ -426,8 +430,8 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="hidden md:table-cell">{new Date(user.created_at).toLocaleDateString()}</TableCell>
+                    <TableCell className="text-right hidden sm:table-cell">
                       <div className="flex items-center justify-end space-x-2">
                         {user.two_factor_enabled && (
                           <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">2FA</span>

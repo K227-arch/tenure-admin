@@ -137,22 +137,23 @@ export default function Payouts() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 lg:space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-4xl font-bold text-foreground mb-2">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-2">
             Payout Management
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-sm sm:text-base text-muted-foreground">
             Manage monthly and yearly (12-month) tenure payouts and winner selection.
           </p>
         </div>
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button size="lg" className="bg-gradient-primary">
+            <Button size="lg" className="bg-gradient-primary w-full sm:w-auto">
               <Play className="h-5 w-5 mr-2" />
-              Trigger Payout Calculation
+              <span className="hidden sm:inline">Trigger Payout Calculation</span>
+              <span className="sm:hidden">Trigger Payout</span>
             </Button>
           </AlertDialogTrigger>
           <AlertDialogContent>
@@ -175,19 +176,20 @@ export default function Payouts() {
       </div>
 
       {/* Current Cycle Stats */}
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-3">
         <Card className="shadow-card">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Trophy className="h-5 w-5 text-primary" />
-              Total Revenue Collected
+            <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
+              <Trophy className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+              <span className="hidden sm:inline">Total Revenue Collected</span>
+              <span className="sm:hidden">Revenue</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-foreground">
+            <div className="text-2xl sm:text-3xl font-bold text-foreground">
               ${totalPayoutPool.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
               Real-time revenue tracking
             </p>
           </CardContent>
@@ -547,23 +549,115 @@ export default function Payouts() {
               {/* Account Timeline */}
               <div className="space-y-4">
                 <h4 className="font-semibold text-foreground border-b pb-2">Account Timeline</h4>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label className="text-sm font-medium text-muted-foreground">Joined Date</Label>
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-muted-foreground" />
-                      <p className="text-sm">
-                        {selectedMember.created_at || selectedMember.joined_at ? new Date(selectedMember.created_at || selectedMember.joined_at).toLocaleDateString() : 'Unknown'}
-                      </p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-sm font-medium">
+                          {selectedMember.created_at || selectedMember.joined_at || selectedMember.user_created_at || selectedMember.join_date
+                            ? new Date(selectedMember.created_at || selectedMember.joined_at || selectedMember.user_created_at || selectedMember.join_date).toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric'
+                              })
+                            : 'Unknown'}
+                        </p>
+                        {(selectedMember.created_at || selectedMember.joined_at || selectedMember.user_created_at || selectedMember.join_date) && (
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(selectedMember.created_at || selectedMember.joined_at || selectedMember.user_created_at || selectedMember.join_date).toLocaleTimeString('en-US', {
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div>
                     <Label className="text-sm font-medium text-muted-foreground">Last Updated</Label>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 mt-1">
                       <Clock className="h-4 w-4 text-muted-foreground" />
-                      <p className="text-sm">
-                        {selectedMember.updated_at ? new Date(selectedMember.updated_at).toLocaleDateString() : 'Unknown'}
-                      </p>
+                      <div>
+                        <p className="text-sm font-medium">
+                          {selectedMember.updated_at
+                            ? new Date(selectedMember.updated_at).toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric'
+                              })
+                            : 'Unknown'}
+                        </p>
+                        {selectedMember.updated_at && (
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(selectedMember.updated_at).toLocaleTimeString('en-US', {
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Last Active</Label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        {selectedMember.last_active || selectedMember.users?.last_active ? (
+                          <>
+                            <p className="text-sm font-medium">
+                              {new Date(selectedMember.last_active || selectedMember.users?.last_active).toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric'
+                              })}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(selectedMember.last_active || selectedMember.users?.last_active).toLocaleTimeString('en-US', {
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-sm font-medium">Never</p>
+                            <p className="text-xs text-muted-foreground">No activity recorded</p>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Account Age</Label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-sm font-medium">
+                          {selectedMember.created_at || selectedMember.joined_at || selectedMember.user_created_at || selectedMember.join_date
+                            ? (() => {
+                                const joinDate = new Date(selectedMember.created_at || selectedMember.joined_at || selectedMember.user_created_at || selectedMember.join_date);
+                                const now = new Date();
+                                const diffTime = Math.abs(now.getTime() - joinDate.getTime());
+                                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                                
+                                if (diffDays < 30) {
+                                  return `${diffDays} day${diffDays !== 1 ? 's' : ''}`;
+                                } else if (diffDays < 365) {
+                                  const months = Math.floor(diffDays / 30);
+                                  return `${months} month${months !== 1 ? 's' : ''}`;
+                                } else {
+                                  const years = Math.floor(diffDays / 365);
+                                  const remainingMonths = Math.floor((diffDays % 365) / 30);
+                                  return `${years} year${years !== 1 ? 's' : ''}${remainingMonths > 0 ? `, ${remainingMonths} month${remainingMonths !== 1 ? 's' : ''}` : ''}`;
+                                }
+                              })()
+                            : 'Unknown'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">Member since joining</p>
+                      </div>
                     </div>
                   </div>
                 </div>
