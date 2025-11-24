@@ -367,7 +367,7 @@ export default function TransactionManagement() {
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className="capitalize">
-                        {transaction.type || 'payment'}
+                        {transaction.payment_type || 'payment'}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -502,7 +502,7 @@ export default function TransactionManagement() {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Type</p>
-                    <Badge variant="outline">{selectedTransaction.type || 'payment'}</Badge>
+                    <Badge variant="outline">{selectedTransaction.payment_type || 'payment'}</Badge>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Date</p>

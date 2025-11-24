@@ -17,7 +17,7 @@ export async function GET(request: Request) {
       .from('user_payments')
       .select(`
         *,
-        users!inner(
+        users(
           id,
           name,
           email,
