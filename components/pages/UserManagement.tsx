@@ -567,7 +567,7 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
       {/* User Details Modal */}
       <Dialog open={isUserDetailsOpen} onOpenChange={setIsUserDetailsOpen}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-3">
               <Avatar className="h-10 w-10">
@@ -587,7 +587,7 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
           </DialogHeader>
           
           {selectedUser && (
-            <div className="grid gap-6 py-4">
+            <div className="grid gap-6 py-4 overflow-y-auto pr-2">
               {/* Basic Information */}
               <div className="space-y-4">
                 <h4 className="font-semibold text-foreground border-b pb-2">Basic Information</h4>
