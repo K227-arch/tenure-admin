@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,11 +21,12 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Trophy, CheckCircle, XCircle, AlertCircle, Play, User, Mail, Phone, Calendar, CreditCard } from "lucide-react";
+import { Trophy, CheckCircle, XCircle, AlertCircle, Play, User, Mail, Phone, Calendar, CreditCard, Clock, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -361,88 +363,148 @@ export default function Payouts() {
 
       {/* Member Details Dialog */}
       <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Member Details</DialogTitle>
+            <DialogTitle className="flex items-center gap-3">
+              <Avatar className="h-10 w-10">
+                <AvatarImage src={selectedMember?.users?.image || selectedMember?.user_image} />
+                <AvatarFallback>
+                  <User className="h-5 w-5" />
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <div className="font-semibold">
+                  {selectedMember?.full_name || selectedMember?.users?.name || selectedMember?.user_name || selectedMember?.name || `${selectedMember?.first_name || ''} ${selectedMember?.last_name || ''}`.trim() || 'Unknown Member'}
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {selectedMember?.users?.email || selectedMember?.user_email || selectedMember?.email}
+                </div>
+              </div>
+            </DialogTitle>
             <DialogDescription>
-              Complete information about the eligible member
+              Complete member profile and account information
             </DialogDescription>
           </DialogHeader>
           {selectedMember && (
-            <div className="space-y-6">
-              {/* User Profile */}
-              <div className="flex items-center gap-4">
-                <Avatar className="h-16 w-16">
-                  <AvatarImage src={selectedMember.users?.image || selectedMember.user_image} />
-                  <AvatarFallback>
-                    <User className="h-8 w-8" />
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <h3 className="text-lg font-semibold">
-                    {selectedMember.full_name || selectedMember.users?.name || selectedMember.user_name || selectedMember.name || `${selectedMember.first_name || ''} ${selectedMember.last_name || ''}`.trim() || 'No Name'}
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    Queue Position #{selectedMember.queue_position || selectedMember.id}
-                  </p>
-                </div>
-              </div>
-
-              {/* Contact Information */}
-              <div className="space-y-3">
-                <h4 className="font-semibold text-sm text-muted-foreground uppercase">Contact Information</h4>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-3">
-                    <Mail className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">
-                      {selectedMember.users?.email || selectedMember.user_email || selectedMember.email || 'No email'}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Phone className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">
-                      {selectedMember.users?.phone || selectedMember.phone || 'No phone'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Membership Information */}
-              <div className="space-y-3">
-                <h4 className="font-semibold text-sm text-muted-foreground uppercase">Membership Information</h4>
+            <div className="grid gap-6 py-4">
+              {/* Basic Information */}
+              <div className="space-y-4">
+                <h4 className="font-semibold text-foreground border-b pb-2">Basic Information</h4>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-xs text-muted-foreground">Status</p>
-                    <Badge variant="default" className="mt-1">
-                      {selectedMember.status || 'Active'}
-                    </Badge>
+                    <Label className="text-sm font-medium text-muted-foreground">Full Name</Label>
+                    <p className="text-sm font-medium">
+                      {selectedMember.full_name || selectedMember.users?.name || selectedMember.user_name || selectedMember.name || `${selectedMember.first_name || ''} ${selectedMember.last_name || ''}`.trim() || 'Not provided'}
+                    </p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Queue Position</p>
-                    <p className="text-sm font-semibold mt-1">#{selectedMember.queue_position || 'N/A'}</p>
+                    <Label className="text-sm font-medium text-muted-foreground">User ID</Label>
+                    <p className="text-sm font-mono truncate">
+                      {selectedMember.user_id || selectedMember.users?.id || 'N/A'}
+                    </p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Join Date</p>
-                    <div className="flex items-center gap-1 mt-1">
-                      <Calendar className="h-3 w-3 text-muted-foreground" />
-                      <p className="text-sm">
-                        {selectedMember.created_at ? new Date(selectedMember.created_at).toLocaleDateString() : 'N/A'}
+                    <Label className="text-sm font-medium text-muted-foreground">Email Address</Label>
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-4 w-4 text-muted-foreground" />
+                      <p className="text-sm truncate">
+                        {selectedMember.users?.email || selectedMember.user_email || selectedMember.email || 'Not provided'}
                       </p>
                     </div>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">User ID</p>
-                    <p className="text-xs font-mono mt-1 truncate">
-                      {selectedMember.user_id || selectedMember.users?.id || 'N/A'}
+                    <Label className="text-sm font-medium text-muted-foreground">Phone Number</Label>
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-4 w-4 text-muted-foreground" />
+                      <p className="text-sm">
+                        {selectedMember.users?.phone || selectedMember.phone || selectedMember.phone_number || 'Not provided'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Account Status */}
+              <div className="space-y-4">
+                <h4 className="font-semibold text-foreground border-b pb-2">Account Status</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Status</Label>
+                    <Badge variant={
+                      selectedMember.status === "active" || selectedMember.status === "Active" ? "default" : 
+                      selectedMember.status === "suspended" || selectedMember.status === "Suspended" ? "destructive" : "secondary"
+                    }>
+                      {selectedMember.status || selectedMember.verification_status || 'Active'}
+                    </Badge>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Email Verified</Label>
+                    <Badge variant={selectedMember.users?.email_verified || selectedMember.email_verified ? "default" : "secondary"}>
+                      {selectedMember.users?.email_verified || selectedMember.email_verified ? 'Verified' : 'Unverified'}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+
+              {/* Location & Personal Info */}
+              <div className="space-y-4">
+                <h4 className="font-semibold text-foreground border-b pb-2">Location & Personal Information</h4>
+                <div className="grid grid-cols-1 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Address</Label>
+                    <p className="text-sm">
+                      {selectedMember.users?.address || selectedMember.address || selectedMember.street_address || 'Not provided'}
+                    </p>
+                  </div>
+                  {(selectedMember.city || selectedMember.state || selectedMember.postal_code) && (
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">City, State & Postal Code</Label>
+                      <p className="text-sm">
+                        {[selectedMember.city, selectedMember.state, selectedMember.postal_code].filter(Boolean).join(', ') || 'Not provided'}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Membership Information */}
+              <div className="space-y-4">
+                <h4 className="font-semibold text-foreground border-b pb-2">Membership Information</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Queue Position</Label>
+                    <Badge variant="secondary" className="text-lg mt-1">
+                      #{selectedMember.queue_position || selectedMember.position || 'N/A'}
+                    </Badge>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Tenure Type</Label>
+                    <Badge variant="outline" className="mt-1">
+                      {selectedMember.tenure_type || selectedMember.billing_cycle || 'N/A'}
+                    </Badge>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Join Date</Label>
+                    <div className="flex items-center gap-1 mt-1">
+                      <Calendar className="h-3 w-3 text-muted-foreground" />
+                      <p className="text-sm">
+                        {selectedMember.created_at || selectedMember.joined_at ? new Date(selectedMember.created_at || selectedMember.joined_at).toLocaleDateString() : 'N/A'}
+                      </p>
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Months Completed</Label>
+                    <p className="text-sm font-semibold mt-1">
+                      {selectedMember.months_completed || 0} months
                     </p>
                   </div>
                 </div>
               </div>
 
               {/* Payment Information */}
-              <div className="space-y-3">
-                <h4 className="font-semibold text-sm text-muted-foreground uppercase">Payment Information</h4>
-                <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+              <div className="space-y-4">
+                <h4 className="font-semibold text-foreground border-b pb-2">Payment Information</h4>
+                <div className="bg-muted/50 rounded-lg p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Pre-payment Amount</span>
                     <span className="font-semibold">
@@ -465,10 +527,54 @@ export default function Payouts() {
                       </Badge>
                     )}
                   </div>
+                  {selectedMember.payment_date && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Payment Date</span>
+                      <span className="text-sm">
+                        {new Date(selectedMember.payment_date).toLocaleDateString()}
+                      </span>
+                    </div>
+                  )}
+                  {selectedMember.payment_type && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Payment Type</span>
+                      <Badge variant="outline">{selectedMember.payment_type}</Badge>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Account Timeline */}
+              <div className="space-y-4">
+                <h4 className="font-semibold text-foreground border-b pb-2">Account Timeline</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Joined Date</Label>
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <p className="text-sm">
+                        {selectedMember.created_at || selectedMember.joined_at ? new Date(selectedMember.created_at || selectedMember.joined_at).toLocaleDateString() : 'Unknown'}
+                      </p>
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Last Updated</Label>
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <p className="text-sm">
+                        {selectedMember.updated_at ? new Date(selectedMember.updated_at).toLocaleDateString() : 'Unknown'}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDetailsOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

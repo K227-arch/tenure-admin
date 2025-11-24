@@ -22,7 +22,11 @@ export async function GET() {
             id,
             name,
             email,
-            image
+            image,
+            status,
+            email_verified,
+            created_at,
+            updated_at
           )
         `)
         .eq('status', 'active')
@@ -33,20 +37,90 @@ export async function GET() {
         throw fallbackError;
       }
 
-      console.log('Fetched members from membership_queue (fallback):', fallbackMembers?.length || 0);
+      // Enrich with phone and address data
+      const enrichedMembers = await Promise.all(
+        (fallbackMembers || []).map(async (member) => {
+          const userId = member.user_id;
+          
+          // Fetch phone number from user_contacts
+          const { data: contacts } = await supabaseAdmin
+            .from('user_contacts')
+            .select('contact_value, contact_type, is_primary')
+            .eq('user_id', userId)
+            .eq('contact_type', 'phone')
+            .order('is_primary', { ascending: false })
+            .limit(1);
+          
+          // Fetch address from user_addresses
+          const { data: addresses } = await supabaseAdmin
+            .from('user_addresses')
+            .select('*')
+            .eq('user_id', userId)
+            .order('is_primary', { ascending: false })
+            .limit(1);
+          
+          return {
+            ...member,
+            phone: contacts?.[0]?.contact_value || null,
+            address: addresses?.[0] ? 
+              `${addresses[0].street_address}${addresses[0].address_line_2 ? ', ' + addresses[0].address_line_2 : ''}` : null,
+            city: addresses?.[0]?.city || null,
+            state: addresses?.[0]?.state || null,
+            postal_code: addresses?.[0]?.postal_code || null,
+            country_code: addresses?.[0]?.country_code || null,
+          };
+        })
+      );
+
+      console.log('Fetched members from membership_queue (fallback):', enrichedMembers?.length || 0);
       return NextResponse.json({
-        members: fallbackMembers || [],
+        members: enrichedMembers || [],
         source: 'membership_queue'
       });
     }
 
-    console.log('Fetched members from active_member_queue_view:', members?.length || 0);
-    if (members && members.length > 0) {
-      console.log('Sample member data:', JSON.stringify(members[0], null, 2));
+    // Enrich view data with phone and address
+    const enrichedMembers = await Promise.all(
+      (members || []).map(async (member) => {
+        const userId = member.user_id;
+        
+        // Fetch phone number from user_contacts
+        const { data: contacts } = await supabaseAdmin
+          .from('user_contacts')
+          .select('contact_value, contact_type, is_primary')
+          .eq('user_id', userId)
+          .eq('contact_type', 'phone')
+          .order('is_primary', { ascending: false })
+          .limit(1);
+        
+        // Fetch address from user_addresses
+        const { data: addresses } = await supabaseAdmin
+          .from('user_addresses')
+          .select('*')
+          .eq('user_id', userId)
+          .order('is_primary', { ascending: false })
+          .limit(1);
+        
+        return {
+          ...member,
+          phone: contacts?.[0]?.contact_value || null,
+          address: addresses?.[0] ? 
+            `${addresses[0].street_address}${addresses[0].address_line_2 ? ', ' + addresses[0].address_line_2 : ''}` : null,
+          city: addresses?.[0]?.city || null,
+          state: addresses?.[0]?.state || null,
+          postal_code: addresses?.[0]?.postal_code || null,
+          country_code: addresses?.[0]?.country_code || null,
+        };
+      })
+    );
+
+    console.log('Fetched members from active_member_queue_view:', enrichedMembers?.length || 0);
+    if (enrichedMembers && enrichedMembers.length > 0) {
+      console.log('Sample member data:', JSON.stringify(enrichedMembers[0], null, 2));
     }
 
     return NextResponse.json({
-      members: members || [],
+      members: enrichedMembers || [],
       source: 'active_member_queue_view'
     });
   } catch (error: any) {
