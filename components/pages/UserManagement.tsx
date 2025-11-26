@@ -325,9 +325,10 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="inactive">Inactive</SelectItem>
-                <SelectItem value="suspended">Suspended</SelectItem>
+                <SelectItem value="Active">Active</SelectItem>
+                <SelectItem value="Inactive">Inactive</SelectItem>
+                <SelectItem value="Suspended">Suspended</SelectItem>
+                <SelectItem value="Pending">Pending</SelectItem>
               </SelectContent>
             </Select>
             <Button onClick={handleSearch} className="w-full md:w-auto">
