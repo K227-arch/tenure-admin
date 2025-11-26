@@ -114,8 +114,8 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   // Fetch all users once, filter on client side for instant results
   const { data: allData, isLoading, isFetching, error, refetch } = useQuery({
-    queryKey: ['users-all', statusFilter, roleFilter], // Only refetch when filters change
-    queryFn: () => fetchUsers(1, '', statusFilter, roleFilter), // Fetch without search
+    queryKey: ['users-all'], // Fetch all users without filters
+    queryFn: () => fetchUsers(1, '', '', ''), // Fetch all users
     refetchInterval: 30000, // Refetch every 30 seconds for real-time updates
     staleTime: 10000, // Consider data fresh for 10 seconds
   });
@@ -239,6 +239,11 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   // Get all users and filter client-side for instant results
   let allUsers = allData?.users || [];
+  
+  // Apply status filter instantly on client side
+  if (statusFilter && statusFilter !== 'all') {
+    allUsers = allUsers.filter(user => user.status === statusFilter);
+  }
   
   // Apply search filter instantly on client side
   if (searchTerm) {
