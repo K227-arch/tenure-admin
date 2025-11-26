@@ -86,8 +86,8 @@ export default function TransactionManagement() {
 
   // Fetch all transactions once, filter on client side for instant results
   const { data: allTransactionData, isLoading, isFetching, error, refetch } = useQuery({
-    queryKey: ['transactions-all', statusFilter, typeFilter], // Only refetch when filters change
-    queryFn: () => fetchTransactions(1, '', statusFilter, typeFilter), // Fetch without search
+    queryKey: ['transactions-all'], // Fetch all transactions
+    queryFn: () => fetchTransactions(1, '', '', ''), // Fetch without filters
     refetchInterval: 30000, // Refetch every 30 seconds for real-time updates
     staleTime: 10000,
   });
@@ -155,6 +155,16 @@ export default function TransactionManagement() {
 
   // Get all transactions and filter client-side for instant results
   let allTransactions = allTransactionData?.transactions || [];
+  
+  // Apply status filter instantly on client side
+  if (statusFilter && statusFilter !== 'all') {
+    allTransactions = allTransactions.filter(transaction => transaction.status === statusFilter);
+  }
+  
+  // Apply type filter instantly on client side
+  if (typeFilter && typeFilter !== 'all') {
+    allTransactions = allTransactions.filter(transaction => transaction.payment_type === typeFilter);
+  }
   
   // Apply search filter instantly on client side
   if (searchTerm) {

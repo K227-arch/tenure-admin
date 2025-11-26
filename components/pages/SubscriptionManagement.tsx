@@ -123,14 +123,14 @@ export default function SubscriptionManagement() {
 
   // Fetch all subscriptions once, filter on client side for instant results
   const { data: allData, isLoading, isFetching, error, refetch } = useQuery({
-    queryKey: ['subscriptions-all', statusFilter], // Only refetch when status filter changes
-    queryFn: () => fetchSubscriptions(1, '', statusFilter).then(async (firstPage) => {
+    queryKey: ['subscriptions-all'], // Fetch all subscriptions
+    queryFn: () => fetchSubscriptions(1, '', '').then(async (firstPage) => {
       // If there are more pages, fetch all of them
       const totalPages = firstPage.pagination.pages;
       if (totalPages > 1) {
         const additionalPages = await Promise.all(
           Array.from({ length: totalPages - 1 }, (_, i) => 
-            fetchSubscriptions(i + 2, '', statusFilter)
+            fetchSubscriptions(i + 2, '', '')
           )
         );
         return {
@@ -279,6 +279,11 @@ export default function SubscriptionManagement() {
 
   // Get all subscriptions and filter client-side for instant results
   let allSubscriptions = allData?.subscriptions || [];
+  
+  // Apply status filter instantly on client side
+  if (statusFilter && statusFilter !== 'all') {
+    allSubscriptions = allSubscriptions.filter(sub => sub.status === statusFilter);
+  }
   
   // Apply search filter instantly on client side
   if (searchTerm) {
