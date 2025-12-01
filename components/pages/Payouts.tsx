@@ -6,6 +6,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,7 +34,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Trophy, CheckCircle, XCircle, AlertCircle, Play, User, Mail, Phone, Calendar, CreditCard, Clock, MapPin } from "lucide-react";
+import { Trophy, CheckCircle, XCircle, AlertCircle, Play, User, Mail, Phone, Calendar, CreditCard, Clock, MapPin, Search, Filter } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -48,6 +56,8 @@ export default function Payouts() {
   const [selectedMember, setSelectedMember] = useState<any>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [tenureFilter, setTenureFilter] = useState<'all' | 'monthly' | 'yearly'>('all');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   const queryClient = useQueryClient();
 
   const { data, isLoading, error } = useQuery({
@@ -231,6 +241,36 @@ export default function Payouts() {
         </Card>
       </div>
 
+      {/* Search and Filters */}
+      <Card className="shadow-card">
+        <CardContent className="pt-6">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by name, email, or user ID..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full md:w-[200px]">
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="Active">Active</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="waiting">Waiting</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Eligible Members */}
       <Card className="shadow-card">
         <CardHeader>
@@ -265,9 +305,28 @@ export default function Payouts() {
           <div className="space-y-4">
             {eligibleMembers
               .filter((member) => {
-                if (tenureFilter === 'all') return true;
-                if (tenureFilter === 'monthly') return member.tenure_type === 'monthly' || member.billing_cycle?.toLowerCase() === 'monthly';
-                if (tenureFilter === 'yearly') return member.tenure_type === 'yearly' || member.billing_cycle?.toLowerCase() === 'yearly' || member.months_completed >= 12;
+                // Apply tenure filter
+                if (tenureFilter === 'monthly' && !(member.tenure_type === 'monthly' || member.billing_cycle?.toLowerCase() === 'monthly')) return false;
+                if (tenureFilter === 'yearly' && !(member.tenure_type === 'yearly' || member.billing_cycle?.toLowerCase() === 'yearly' || member.months_completed >= 12)) return false;
+                
+                // Apply status filter
+                if (statusFilter && statusFilter !== 'all') {
+                  const memberStatus = member.status || member.verification_status || 'Active';
+                  if (memberStatus !== statusFilter) return false;
+                }
+                
+                // Apply search filter
+                if (searchTerm) {
+                  const searchLower = searchTerm.toLowerCase();
+                  const name = (member.full_name || member.users?.name || member.user_name || member.name || `${member.first_name || ''} ${member.last_name || ''}`.trim() || '').toLowerCase();
+                  const email = (member.email || member.users?.email || '').toLowerCase();
+                  const userId = (member.user_id || member.users?.id || '').toString().toLowerCase();
+                  
+                  if (!name.includes(searchLower) && !email.includes(searchLower) && !userId.includes(searchLower)) {
+                    return false;
+                  }
+                }
+                
                 return true;
               })
               .map((member) => (

@@ -121,12 +121,12 @@ export async function GET(
       
       if (selectedAddress) {
         userAddress = [
-          selectedAddress.addressLine1,
+          selectedAddress.streetAddress,
           selectedAddress.addressLine2,
           selectedAddress.city,
           selectedAddress.state,
           selectedAddress.postalCode,
-          selectedAddress.country
+          selectedAddress.countryCode
         ].filter(Boolean).join(', ');
       }
     } catch (err) {
