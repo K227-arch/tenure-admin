@@ -8,6 +8,7 @@ export const userStatusEnum = pgEnum('enum_users_status', ['Active', 'Inactive',
 export const subscriptionStatusEnum = pgEnum('subscription_status', ['active', 'inactive', 'cancelled', 'past_due', 'trialing']);
 export const transactionStatusEnum = pgEnum('transaction_status', ['pending', 'completed', 'failed', 'refunded']);
 export const payoutStatusEnum = pgEnum('payout_status', ['pending', 'processing', 'completed', 'failed']);
+export const membershipStatusEnum = pgEnum('membership_status', ['Inactive', 'Active', 'Suspended', 'Cancelled', 'Won', 'Paid']);
 export const actionTypeEnum = pgEnum('action_type', ['login', 'logout', 'create', 'update', 'delete', 'view', 'export']);
 
 // Admin Accounts Table (using existing 'admin' table)
@@ -140,7 +141,7 @@ export const membershipQueue = pgTable('membership_queue', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   position: integer('position').notNull(),
-  status: varchar('status', { length: 50 }).notNull().default('waiting'),
+  status: membershipStatusEnum('status').notNull().default('Inactive'),
   joinedAt: timestamp('joined_at').notNull().defaultNow(),
   notifiedAt: timestamp('notified_at'),
   metadata: jsonb('metadata'),

@@ -261,10 +261,12 @@ export default function Payouts() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="Inactive">Inactive</SelectItem>
                 <SelectItem value="Active">Active</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="waiting">Waiting</SelectItem>
+                <SelectItem value="Suspended">Suspended</SelectItem>
+                <SelectItem value="Cancelled">Cancelled</SelectItem>
+                <SelectItem value="Won">Won</SelectItem>
+                <SelectItem value="Paid">Paid</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -311,7 +313,7 @@ export default function Payouts() {
                 
                 // Apply status filter
                 if (statusFilter && statusFilter !== 'all') {
-                  const memberStatus = member.status || member.verification_status || 'Active';
+                  const memberStatus = member.member_status || member.status || 'Active';
                   if (memberStatus !== statusFilter) return false;
                 }
                 
@@ -347,25 +349,20 @@ export default function Payouts() {
                     <Badge variant="secondary">#{member.queue_position || member.id}</Badge>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    {member.email || member.users?.email || 'No email'} | Queue Position: {member.queue_position} | Status: {member.status || member.verification_status || 'Active'}
+                    {member.email || member.users?.email || 'No email'} | Queue Position: {member.queue_position} | Status: {member.member_status || member.status || 'Active'}
                   </p>
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="text-right">
-                    <p className="text-sm text-muted-foreground mb-1">
-                      ${member.prepayment_amount || member.amount || 300} Pre-payment
-                    </p>
-                    {member.prepayment_status === "completed" || member.prepaymentStatus === "completed" || member.payment_status === "completed" ? (
-                      <Badge variant="default" className="bg-success">
-                        <CheckCircle className="h-3 w-3 mr-1" />
-                        Completed
-                      </Badge>
-                    ) : (
-                      <Badge variant="destructive">
-                        <XCircle className="h-3 w-3 mr-1" />
-                        Pending
-                      </Badge>
-                    )}
+                    <Badge variant={
+                      member.member_status === "Active" ? "default" : 
+                      member.member_status === "Suspended" ? "destructive" :
+                      member.member_status === "Won" ? "default" :
+                      member.member_status === "Paid" ? "default" :
+                      member.member_status === "Cancelled" ? "destructive" : "secondary"
+                    }>
+                      {member.member_status || member.status || 'Inactive'}
+                    </Badge>
                   </div>
                   <Button 
                     variant="outline" 
@@ -490,12 +487,14 @@ export default function Payouts() {
                 <h4 className="font-semibold text-foreground border-b pb-2">Account Status</h4>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label className="text-sm font-medium text-muted-foreground">Status</Label>
+                    <Label className="text-sm font-medium text-muted-foreground">Membership Status</Label>
                     <Badge variant={
-                      selectedMember.status === "active" || selectedMember.status === "Active" ? "default" : 
-                      selectedMember.status === "suspended" || selectedMember.status === "Suspended" ? "destructive" : "secondary"
+                      selectedMember.member_status === "Active" ? "default" : 
+                      selectedMember.member_status === "Suspended" ? "destructive" :
+                      selectedMember.member_status === "Won" ? "default" :
+                      selectedMember.member_status === "Paid" ? "default" : "secondary"
                     }>
-                      {selectedMember.status || selectedMember.verification_status || 'Active'}
+                      {selectedMember.member_status || selectedMember.status || 'Active'}
                     </Badge>
                   </div>
                   <div>

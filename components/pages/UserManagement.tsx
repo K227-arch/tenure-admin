@@ -362,7 +362,6 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
                   <TableHead className="min-w-[100px]">Status</TableHead>
                   <TableHead className="min-w-[150px] hidden xl:table-cell">Activity</TableHead>
                   <TableHead className="min-w-[120px] hidden md:table-cell">Join Date</TableHead>
-                  <TableHead className="text-right min-w-[120px] hidden sm:table-cell">Membership</TableHead>
                   <TableHead className="text-right min-w-[120px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -441,14 +440,6 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
                       </div>
                     </TableCell>
                     <TableCell className="hidden md:table-cell">{new Date(user.created_at).toLocaleDateString()}</TableCell>
-                    <TableCell className="text-right hidden sm:table-cell">
-                      <div className="flex items-center justify-end space-x-2">
-                        {user.two_factor_enabled && (
-                          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">2FA</span>
-                        )}
-                        <span className="text-sm">Member</span>
-                      </div>
-                    </TableCell>
                     <TableCell className="text-right">
                       <Button 
                         variant="outline" 
