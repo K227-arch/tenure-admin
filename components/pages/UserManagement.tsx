@@ -242,7 +242,13 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   
   // Apply status filter instantly on client side
   if (statusFilter && statusFilter !== 'all') {
-    allUsers = allUsers.filter(user => user.status === statusFilter);
+    // Map filter values to database enum values
+    const statusMap: { [key: string]: string } = {
+      'onboarded': 'Onboarded',
+      'pending': 'Pending'
+    };
+    const dbStatus = statusMap[statusFilter] || statusFilter;
+    allUsers = allUsers.filter(user => user.status === dbStatus);
   }
   
   // Apply search filter instantly on client side
@@ -329,10 +335,8 @@ const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="Active">Active</SelectItem>
-                <SelectItem value="Inactive">Inactive</SelectItem>
-                <SelectItem value="Suspended">Suspended</SelectItem>
-                <SelectItem value="Pending">Pending</SelectItem>
+                <SelectItem value="onboarded">Onboarded</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
               </SelectContent>
             </Select>
             <Button onClick={handleSearch} className="w-full sm:w-auto">

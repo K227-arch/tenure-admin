@@ -4,7 +4,7 @@ import { pgTable, uuid, varchar, text, timestamp, boolean, integer, decimal, jso
 export const adminRoleEnum = pgEnum('admin_role', ['super_admin', 'admin', 'moderator']);
 export const adminStatusEnum = pgEnum('admin_status', ['active', 'inactive', 'suspended']);
 // Note: Using existing enum name and values from database
-export const userStatusEnum = pgEnum('enum_users_status', ['Active', 'Inactive', 'Suspended', 'Pending']);
+export const userStatusEnum = pgEnum('enum_users_status', ['Active', 'Inactive', 'Suspended', 'Pending', 'Onboarded']);
 export const subscriptionStatusEnum = pgEnum('subscription_status', ['active', 'inactive', 'cancelled', 'past_due', 'trialing']);
 export const transactionStatusEnum = pgEnum('transaction_status', ['pending', 'completed', 'failed', 'refunded']);
 export const payoutStatusEnum = pgEnum('payout_status', ['pending', 'processing', 'completed', 'failed']);

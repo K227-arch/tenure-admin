@@ -77,7 +77,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed left-0 top-0 z-50 h-screen bg-sidebar transition-all duration-300 border-r border-sidebar-border",
+          "fixed left-0 top-0 z-50 h-screen transition-all duration-300 border-r",
+          "bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800",
           // Desktop
           "hidden lg:block",
           collapsed ? "lg:w-16" : "lg:w-64",
@@ -85,39 +86,39 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           mobileMenuOpen ? "block w-64" : "hidden"
         )}
       >
-        <div className="flex h-full flex-col">
+        <div className="flex h-full flex-col bg-white dark:bg-gray-900">
           {/* Logo */}
-          <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-4">
+          <div className="flex h-16 items-center justify-between border-b border-gray-200 dark:border-gray-800 px-4 bg-white dark:bg-gray-900">
             {!collapsed && (
-              <div className="text-sidebar-foreground">
+              <div className="text-gray-900 dark:text-gray-100">
                 <h1 className="text-lg font-bold text-blue-600">Home Solutions</h1>
-                <p className="text-xs text-sidebar-foreground/70">Admin Panel</p>
+                <p className="text-xs text-gray-600 dark:text-gray-400">Admin Panel</p>
               </div>
             )}
             <div className="flex items-center gap-2">
               {/* Close button for mobile */}
               <button
                 onClick={() => setMobileMenuOpen(false)}
-                className="lg:hidden rounded-lg p-2 hover:bg-sidebar-accent transition-colors"
+                className="lg:hidden rounded-lg p-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
               >
-                <X className="h-5 w-5 text-sidebar-foreground" />
+                <X className="h-5 w-5 text-gray-900 dark:text-gray-100" />
               </button>
               {/* Collapse button for desktop */}
               <button
                 onClick={() => setCollapsed(!collapsed)}
-                className="hidden lg:block rounded-lg p-2 hover:bg-sidebar-accent transition-colors"
+                className="hidden lg:block rounded-lg p-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
               >
                 {collapsed ? (
-                  <ChevronRight className="h-5 w-5 text-sidebar-foreground" />
+                  <ChevronRight className="h-5 w-5 text-gray-900 dark:text-gray-100" />
                 ) : (
-                  <ChevronLeft className="h-5 w-5 text-sidebar-foreground" />
+                  <ChevronLeft className="h-5 w-5 text-gray-900 dark:text-gray-100" />
                 )}
               </button>
             </div>
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 space-y-1 p-4 overflow-y-auto">
+          <nav className="flex-1 space-y-1 p-4 overflow-y-auto bg-white dark:bg-gray-900">
             {navigationItems.map((item) => {
               // Special handling for Security & Monitoring (matches both /admin-sessions and /audit)
               const isActive = item.href === "/admin-sessions" 
@@ -131,8 +132,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                   className={cn(
                     "flex items-center gap-3 rounded-lg px-3 py-2.5 transition-all duration-200",
                     isActive
-                      ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-md"
-                      : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      ? "bg-blue-600 text-white shadow-md"
+                      : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
                   )}
                 >
                   <item.icon className="h-5 w-5 flex-shrink-0" />
