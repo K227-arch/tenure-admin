@@ -6,6 +6,7 @@ import {
   twoFactorAuth,
   auditLogs,
   users,
+  userFunnelStatuses,
   subscriptions,
   transactions,
   payouts,
@@ -201,12 +202,46 @@ export const auditLogQueries = {
 // User Queries
 export const userQueries = {
   findById: async (id: string) => {
-    const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
+    const result = await db
+      .select({
+        id: users.id,
+        authUserId: users.authUserId,
+        email: users.email,
+        emailVerified: users.emailVerified,
+        userStatusId: users.userStatusId,
+        status: userFunnelStatuses.name,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
+        name: users.name,
+        image: users.image,
+        twoFactorEnabled: users.twoFactorEnabled,
+      })
+      .from(users)
+      .leftJoin(userFunnelStatuses, eq(users.userStatusId, userFunnelStatuses.id))
+      .where(eq(users.id, id))
+      .limit(1);
     return result[0] || null;
   },
 
   findByEmail: async (email: string) => {
-    const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    const result = await db
+      .select({
+        id: users.id,
+        authUserId: users.authUserId,
+        email: users.email,
+        emailVerified: users.emailVerified,
+        userStatusId: users.userStatusId,
+        status: userFunnelStatuses.name,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
+        name: users.name,
+        image: users.image,
+        twoFactorEnabled: users.twoFactorEnabled,
+      })
+      .from(users)
+      .leftJoin(userFunnelStatuses, eq(users.userStatusId, userFunnelStatuses.id))
+      .where(eq(users.email, email))
+      .limit(1);
     return result[0] || null;
   },
 
@@ -232,13 +267,27 @@ export const userQueries = {
     status?: string;
     search?: string;
   }) => {
-    let query = db.select().from(users);
+    const result = await db
+      .select({
+        id: users.id,
+        authUserId: users.authUserId,
+        email: users.email,
+        emailVerified: users.emailVerified,
+        userStatusId: users.userStatusId,
+        status: userFunnelStatuses.name,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
+        name: users.name,
+        image: users.image,
+        twoFactorEnabled: users.twoFactorEnabled,
+      })
+      .from(users)
+      .leftJoin(userFunnelStatuses, eq(users.userStatusId, userFunnelStatuses.id))
+      .orderBy(desc(users.createdAt))
+      .limit(limit)
+      .offset(offset);
 
-    if (filters?.status) {
-      query = query.where(eq(users.status, filters.status as any)) as any;
-    }
-
-    return await query.orderBy(desc(users.createdAt)).limit(limit).offset(offset);
+    return result;
   },
 
   getStats: async () => {
@@ -246,7 +295,8 @@ export const userQueries = {
     const [activeResult] = await db
       .select({ count: count() })
       .from(users)
-      .where(eq(users.status, 'Active'));
+      .leftJoin(userFunnelStatuses, eq(users.userStatusId, userFunnelStatuses.id))
+      .where(eq(userFunnelStatuses.name, 'Active'));
 
     return {
       total: totalResult.count,

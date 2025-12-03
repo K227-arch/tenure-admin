@@ -73,13 +73,21 @@ export const auditLogs = pgTable('audit_logs', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
+// User Funnel Status Lookup Table
+export const userFunnelStatuses = pgTable('user_funnel_statuses', {
+  id: integer('id').primaryKey(),
+  name: varchar('name', { length: 50 }).notNull(),
+  description: text('description'),
+});
+
 // Users Table (matching existing structure)
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   authUserId: text('auth_user_id'),
   email: varchar('email', { length: 255 }).notNull().unique(),
   emailVerified: boolean('email_verified').default(false),
-  status: userStatusEnum('status').notNull().default('Active'),
+  userStatusId: integer('user_status_id').references(() => userFunnelStatuses.id),
+  status: text('status'), // Keep for backward compatibility
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
   name: text('name'),
@@ -230,6 +238,8 @@ export type TwoFactorAuth = typeof twoFactorAuth.$inferSelect;
 export type NewTwoFactorAuth = typeof twoFactorAuth.$inferInsert;
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type NewAuditLog = typeof auditLogs.$inferInsert;
+export type UserFunnelStatus = typeof userFunnelStatuses.$inferSelect;
+export type NewUserFunnelStatus = typeof userFunnelStatuses.$inferInsert;
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Subscription = typeof subscriptions.$inferSelect;
