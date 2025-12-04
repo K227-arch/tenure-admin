@@ -83,7 +83,6 @@ export const userFunnelStatuses = pgTable('user_funnel_statuses', {
 // Users Table (matching existing structure)
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
-  authUserId: text('auth_user_id'),
   email: varchar('email', { length: 255 }).notNull().unique(),
   emailVerified: boolean('email_verified').default(false),
   userStatusId: integer('user_status_id').references(() => userFunnelStatuses.id),

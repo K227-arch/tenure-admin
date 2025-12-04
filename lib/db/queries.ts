@@ -207,7 +207,6 @@ export const userQueries = {
     const result = await db
       .select({
         id: users.id,
-        authUserId: users.authUserId,
         email: users.email,
         emailVerified: users.emailVerified,
         userStatusId: users.userStatusId,
@@ -229,7 +228,6 @@ export const userQueries = {
     const result = await db
       .select({
         id: users.id,
-        authUserId: users.authUserId,
         email: users.email,
         emailVerified: users.emailVerified,
         userStatusId: users.userStatusId,
@@ -272,7 +270,6 @@ export const userQueries = {
     const result = await db
       .select({
         id: users.id,
-        authUserId: users.authUserId,
         email: users.email,
         emailVerified: users.emailVerified,
         userStatusId: users.userStatusId,
@@ -486,7 +483,7 @@ export const billingScheduleQueries = {
         schedule: billingSchedules,
         user: {
           id: users.id,
-          authUserId: users.authUserId,
+          
           email: users.email,
           emailVerified: users.emailVerified,
           userStatusId: users.userStatusId,
@@ -510,7 +507,7 @@ export const billingScheduleQueries = {
         schedule: billingSchedules,
         user: {
           id: users.id,
-          authUserId: users.authUserId,
+          
           email: users.email,
           emailVerified: users.emailVerified,
           userStatusId: users.userStatusId,
@@ -568,7 +565,7 @@ export const userPaymentQueries = {
         payment: userPayments,
         user: {
           id: users.id,
-          authUserId: users.authUserId,
+          
           email: users.email,
           emailVerified: users.emailVerified,
           userStatusId: users.userStatusId,
