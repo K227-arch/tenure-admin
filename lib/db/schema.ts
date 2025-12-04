@@ -229,6 +229,19 @@ export const userAddresses = pgTable('user_addresses', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 });
 
+// Newsfeed Posts Table
+export const newsfeedPosts = pgTable('newsfeedposts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  adminId: integer('admin_id').references(() => adminAccounts.id, { onDelete: 'set null' }),
+  title: varchar('title', { length: 255 }).notNull(),
+  content: text('content').notNull(),
+  imageUrl: text('image_url'),
+  isPublished: boolean('is_published').default(false),
+  publishedAt: timestamp('published_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
 // Export types
 export type AdminAccount = typeof adminAccounts.$inferSelect;
 export type NewAdminAccount = typeof adminAccounts.$inferInsert;
@@ -260,3 +273,5 @@ export type UserContact = typeof userContacts.$inferSelect;
 export type NewUserContact = typeof userContacts.$inferInsert;
 export type UserAddress = typeof userAddresses.$inferSelect;
 export type NewUserAddress = typeof userAddresses.$inferInsert;
+export type NewsfeedPost = typeof newsfeedPosts.$inferSelect;
+export type NewNewsfeedPost = typeof newsfeedPosts.$inferInsert;

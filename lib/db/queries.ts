@@ -14,6 +14,7 @@ import {
   billingSchedules,
   adminAlerts,
   userPayments,
+  newsfeedPosts,
   type NewAdminAccount,
   type NewAdminSession,
   type NewTwoFactorAuth,
@@ -22,6 +23,7 @@ import {
   type NewSubscription,
   type NewTransaction,
   type NewUserPayment,
+  type NewNewsfeedPost,
 } from './schema';
 
 // Admin Account Queries
@@ -482,7 +484,18 @@ export const billingScheduleQueries = {
     return await db
       .select({
         schedule: billingSchedules,
-        user: users,
+        user: {
+          id: users.id,
+          authUserId: users.authUserId,
+          email: users.email,
+          emailVerified: users.emailVerified,
+          userStatusId: users.userStatusId,
+          createdAt: users.createdAt,
+          updatedAt: users.updatedAt,
+          name: users.name,
+          image: users.image,
+          twoFactorEnabled: users.twoFactorEnabled,
+        },
       })
       .from(billingSchedules)
       .leftJoin(users, eq(billingSchedules.userId, users.id))
@@ -495,7 +508,18 @@ export const billingScheduleQueries = {
     return await db
       .select({
         schedule: billingSchedules,
-        user: users,
+        user: {
+          id: users.id,
+          authUserId: users.authUserId,
+          email: users.email,
+          emailVerified: users.emailVerified,
+          userStatusId: users.userStatusId,
+          createdAt: users.createdAt,
+          updatedAt: users.updatedAt,
+          name: users.name,
+          image: users.image,
+          twoFactorEnabled: users.twoFactorEnabled,
+        },
       })
       .from(billingSchedules)
       .leftJoin(users, eq(billingSchedules.userId, users.id))
@@ -542,7 +566,18 @@ export const userPaymentQueries = {
     let query = db
       .select({
         payment: userPayments,
-        user: users,
+        user: {
+          id: users.id,
+          authUserId: users.authUserId,
+          email: users.email,
+          emailVerified: users.emailVerified,
+          userStatusId: users.userStatusId,
+          createdAt: users.createdAt,
+          updatedAt: users.updatedAt,
+          name: users.name,
+          image: users.image,
+          twoFactorEnabled: users.twoFactorEnabled,
+        },
       })
       .from(userPayments)
       .leftJoin(users, eq(userPayments.userId, users.id));
@@ -583,5 +618,98 @@ export const userPaymentQueries = {
       .where(eq(userPayments.status, status));
 
     return result[0];
+  },
+};
+
+// Newsfeed Post Queries
+export const newsfeedPostQueries = {
+  getAll: async (limit = 100, offset = 0, publishedOnly = false) => {
+    let query = db
+      .select({
+        post: newsfeedPosts,
+        admin: {
+          id: adminAccounts.id,
+          name: adminAccounts.name,
+          email: adminAccounts.email,
+        },
+      })
+      .from(newsfeedPosts)
+      .leftJoin(adminAccounts, eq(newsfeedPosts.adminId, adminAccounts.id));
+
+    if (publishedOnly) {
+      query = query.where(eq(newsfeedPosts.isPublished, true)) as any;
+    }
+
+    return await query.orderBy(desc(newsfeedPosts.createdAt)).limit(limit).offset(offset);
+  },
+
+  findById: async (id: string) => {
+    const result = await db
+      .select({
+        post: newsfeedPosts,
+        admin: {
+          id: adminAccounts.id,
+          name: adminAccounts.name,
+          email: adminAccounts.email,
+        },
+      })
+      .from(newsfeedPosts)
+      .leftJoin(adminAccounts, eq(newsfeedPosts.adminId, adminAccounts.id))
+      .where(eq(newsfeedPosts.id, id))
+      .limit(1);
+    return result[0] || null;
+  },
+
+  create: async (data: NewNewsfeedPost) => {
+    const result = await db.insert(newsfeedPosts).values({
+      ...data,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return result[0];
+  },
+
+  update: async (id: string, data: Partial<NewNewsfeedPost>) => {
+    const result = await db
+      .update(newsfeedPosts)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(newsfeedPosts.id, id))
+      .returning();
+    return result[0];
+  },
+
+  delete: async (id: string) => {
+    await db.delete(newsfeedPosts).where(eq(newsfeedPosts.id, id));
+  },
+
+  publish: async (id: string) => {
+    const result = await db
+      .update(newsfeedPosts)
+      .set({ isPublished: true, publishedAt: new Date(), updatedAt: new Date() })
+      .where(eq(newsfeedPosts.id, id))
+      .returning();
+    return result[0];
+  },
+
+  unpublish: async (id: string) => {
+    const result = await db
+      .update(newsfeedPosts)
+      .set({ isPublished: false, updatedAt: new Date() })
+      .where(eq(newsfeedPosts.id, id))
+      .returning();
+    return result[0];
+  },
+
+  getStats: async () => {
+    const [totalResult] = await db.select({ count: count() }).from(newsfeedPosts);
+    const [publishedResult] = await db
+      .select({ count: count() })
+      .from(newsfeedPosts)
+      .where(eq(newsfeedPosts.isPublished, true));
+
+    return {
+      total: totalResult.count,
+      published: publishedResult.count,
+    };
   },
 };

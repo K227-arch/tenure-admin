@@ -2,13 +2,16 @@ import { NextResponse } from 'next/server';
 import { getStripeStats } from '@/lib/integrations/stripe';
 import { getTwilioStats } from '@/lib/integrations/twilio';
 import { getEmailStats } from '@/lib/integrations/email';
-import { userQueries, subscriptionQueries, adminSessionQueries, userPaymentQueries } from '@/lib/db/queries';
+import { userQueries, subscriptionQueries, adminSessionQueries, userPaymentQueries, billingScheduleQueries } from '@/lib/db/queries';
+import { db } from '@/lib/db';
+import { billingSchedules } from '@/lib/db/schema';
+import { count, eq } from 'drizzle-orm';
 
 // Helper function to calculate time ago
 function getTimeAgo(date: Date): string {
   const now = new Date();
   const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-  
+
   if (diffInSeconds < 60) return 'Just now';
   if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} minutes ago`;
   if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`;
@@ -21,10 +24,10 @@ function parseTimeAgo(timeStr: string): number {
   if (timeStr === 'Just now') return 0;
   const match = timeStr.match(/(\d+)\s+(minute|hour|day|month)s?\s+ago/);
   if (!match) return 0;
-  
+
   const value = parseInt(match[1]);
   const unit = match[2];
-  
+
   switch (unit) {
     case 'minute': return value;
     case 'hour': return value * 60;
@@ -38,7 +41,19 @@ export async function GET() {
   try {
     // Get stats from Drizzle
     const userStats = await userQueries.getStats();
-    const subscriptionStats = await subscriptionQueries.getStats();
+
+    // Get billing schedule stats (subscriptions)
+    const [totalBillingResult] = await db.select({ count: count() }).from(billingSchedules);
+    const [activeBillingResult] = await db
+      .select({ count: count() })
+      .from(billingSchedules)
+      .where(eq(billingSchedules.isActive, true));
+
+    const subscriptionStats = {
+      total: totalBillingResult.count,
+      active: activeBillingResult.count,
+    };
+
     const sessionStats = await adminSessionQueries.getStats();
     const paymentStats = await userPaymentQueries.getStats();
 
@@ -48,12 +63,19 @@ export async function GET() {
 
     // Get all data for charts
     const users = await userQueries.getAll(1000, 0);
-    const subscriptionsData = await subscriptionQueries.getAll(1000, 0);
+    const billingSchedulesData = await billingScheduleQueries.getAll(1000, 0);
+    const subscriptionsData = billingSchedulesData.map(({ schedule }) => ({
+      id: schedule.id,
+      userId: schedule.userId,
+      createdAt: schedule.createdAt,
+      status: (schedule as any).status || (schedule.isActive ? 'active' : 'canceled'),
+      isActive: schedule.isActive,
+    }));
     const paymentsData = await userPaymentQueries.getAll(1000, 0);
 
     // Calculate stats
     const activeMembers = userStats.total || 0;
-    
+
     // Count users who were active in the last 15 minutes (recently active)
     const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
     const recentlyActiveUsers = users.filter((user: any) => {
@@ -61,7 +83,7 @@ export async function GET() {
       return lastActive >= fifteenMinutesAgo;
     });
     const onlineNow = recentlyActiveUsers.length;
-    
+
     console.log('Dashboard Stats (from user_payments via Drizzle):', {
       totalRevenue,
       paymentStats,
@@ -80,30 +102,32 @@ export async function GET() {
       date.setMonth(date.getMonth() - i);
       const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
       const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
-      
+
       const monthName = monthStart.toLocaleDateString('en-US', { month: 'short' });
-      
+
       // Calculate revenue for this month from user_payments
       const monthPayments = paymentsData.filter((p: any) => {
         const payDate = new Date(p.payment.createdAt);
         return payDate >= monthStart && payDate <= monthEnd;
       });
-      
-      const monthRevenue = monthPayments.reduce((sum: number, p: any) => 
+
+      const monthRevenue = monthPayments.reduce((sum: number, p: any) =>
         sum + (parseFloat(p.payment.amount.toString()) || 0), 0
       );
-      
+
       // Calculate active subscriptions for this month
       const monthActiveSubscriptions = subscriptionsData.filter((sub: any) => {
-        const subDate = new Date(sub.subscription.createdAt);
-        return subDate <= monthEnd && sub.subscription.status === 'active';
+        if (!sub.createdAt) return false;
+        const subDate = new Date(sub.createdAt);
+        return subDate <= monthEnd && sub.status === 'active';
       });
-      
+
       // Calculate defaulted/canceled subscriptions
       const monthDefaulted = subscriptionsData.filter((sub: any) => {
-        const subDate = new Date(sub.subscription.createdAt);
-        return subDate >= monthStart && subDate <= monthEnd && 
-               (sub.subscription.status === 'cancelled' || sub.subscription.status === 'past_due');
+        if (!sub.createdAt) return false;
+        const subDate = new Date(sub.createdAt);
+        return subDate >= monthStart && subDate <= monthEnd &&
+          (sub.status === 'canceled' || sub.status === 'past_due');
       });
 
       revenueData.push({
@@ -120,20 +144,20 @@ export async function GET() {
 
     // Generate recent activity from real data
     const recentActivity = [];
-    
+
     // Get recent users (last 3)
-    const recentUsers = [...users].sort((a: any, b: any) => 
+    const recentUsers = [...users].sort((a: any, b: any) =>
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     ).slice(0, 3);
-    
+
     // Get recent payments (last 3)
-    const recentPayments = [...paymentsData].sort((a: any, b: any) => 
+    const recentPayments = [...paymentsData].sort((a: any, b: any) =>
       new Date(b.payment.createdAt).getTime() - new Date(a.payment.createdAt).getTime()
     ).slice(0, 3);
-    
+
     // Get recent subscriptions (last 2)
-    const recentSubs = [...subscriptionsData].sort((a: any, b: any) => 
-      new Date(b.subscription.createdAt).getTime() - new Date(a.subscription.createdAt).getTime()
+    const recentSubs = [...subscriptionsData].filter((s: any) => s.createdAt).sort((a: any, b: any) =>
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     ).slice(0, 2);
 
     // Add recent users
@@ -158,9 +182,9 @@ export async function GET() {
 
     // Add recent subscriptions
     recentSubs.forEach((sub: any) => {
-      const timeAgo = getTimeAgo(new Date(sub.subscription.createdAt));
+      const timeAgo = getTimeAgo(new Date(sub.createdAt));
       recentActivity.push({
-        action: sub.subscription.status === 'active' ? 'Subscription activated' : 'Subscription updated',
+        action: sub.status === 'active' ? 'Subscription activated' : 'Subscription updated',
         user: sub.user?.name || sub.user?.email || 'Unknown User',
         time: timeAgo
       });

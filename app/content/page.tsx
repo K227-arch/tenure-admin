@@ -1,10 +1,10 @@
 import { AdminLayout } from "@/components/AdminLayout";
-import ContentManagement from "@/components/pages/ContentManagement";
+import NewsfeedManagement from "@/components/pages/NewsfeedManagement";
 
 export default function ContentPage() {
   return (
     <AdminLayout>
-      <ContentManagement />
+      <NewsfeedManagement />
     </AdminLayout>
   );
 }
