@@ -80,7 +80,7 @@ export default function Payouts() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedMember, setSelectedMember] = useState<any>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
-  const [tenureFilter, setTenureFilter] = useState<'all' | 'monthly' | 'yearly'>('all');
+
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [isEditingStatus, setIsEditingStatus] = useState(false);
@@ -165,13 +165,7 @@ export default function Payouts() {
   const eligibleMembers = data?.queue?.members || [];
   const payoutHistory = data?.payouts?.payouts || [];
   
-  // Calculate monthly and yearly eligible members
-  const monthlyEligible = eligibleMembers.filter(m => 
-    m.tenure_type === 'monthly' || m.billing_cycle?.toLowerCase() === 'monthly'
-  );
-  const yearlyEligible = eligibleMembers.filter(m => 
-    m.tenure_type === 'yearly' || m.billing_cycle?.toLowerCase() === 'yearly' || m.months_completed >= 12
-  );
+
   
   // Extract stats from API
   const totalPayoutPool = data?.payouts?.stats?.totalPayoutPool || 0;
@@ -209,7 +203,7 @@ export default function Payouts() {
             Payout Management
           </h1>
           <p className="text-sm sm:text-base text-muted-foreground">
-            Manage monthly and yearly (12-month) tenure payouts and winner selection.
+            Manage member payouts and winner selection.
           </p>
         </div>
         <AlertDialog>
@@ -268,14 +262,7 @@ export default function Payouts() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-foreground">{eligibleMembers.length}</div>
-            <div className="flex gap-4 mt-2">
-              <div>
-                <p className="text-sm text-muted-foreground">Monthly: {monthlyEligible.length}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Yearly: {yearlyEligible.length}</p>
-              </div>
-            </div>
+
           </CardContent>
         </Card>
 
@@ -330,41 +317,12 @@ export default function Payouts() {
       {/* Eligible Members */}
       <Card className="shadow-card">
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Eligible Members for Current Cycle</CardTitle>
-            <div className="flex gap-2">
-              <Button
-                variant={tenureFilter === 'all' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setTenureFilter('all')}
-              >
-                All
-              </Button>
-              <Button
-                variant={tenureFilter === 'monthly' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setTenureFilter('monthly')}
-              >
-                Monthly
-              </Button>
-              <Button
-                variant={tenureFilter === 'yearly' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setTenureFilter('yearly')}
-              >
-                Yearly (12 Months)
-              </Button>
-            </div>
-          </div>
+          <CardTitle>Eligible Members for Current Cycle</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             {eligibleMembers
               .filter((member) => {
-                // Apply tenure filter
-                if (tenureFilter === 'monthly' && !(member.tenure_type === 'monthly' || member.billing_cycle?.toLowerCase() === 'monthly')) return false;
-                if (tenureFilter === 'yearly' && !(member.tenure_type === 'yearly' || member.billing_cycle?.toLowerCase() === 'yearly' || member.months_completed >= 12)) return false;
-                
                 // Apply status filter
                 if (statusFilter && statusFilter !== 'all') {
                   const memberStatus = member.member_status || member.status || 'Active';
@@ -685,12 +643,7 @@ export default function Payouts() {
                       #{selectedMember.queue_position || selectedMember.position || 'N/A'}
                     </Badge>
                   </div>
-                  <div>
-                    <Label className="text-sm font-medium text-muted-foreground">Tenure Type</Label>
-                    <Badge variant="outline" className="mt-1">
-                      {selectedMember.tenure_type || selectedMember.billing_cycle || 'N/A'}
-                    </Badge>
-                  </div>
+
                   <div>
                     <Label className="text-sm font-medium text-muted-foreground">Join Date</Label>
                     <div className="flex items-center gap-1 mt-1">
