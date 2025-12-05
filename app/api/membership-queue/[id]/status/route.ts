@@ -107,11 +107,12 @@ export async function PATCH(
     const statusId = newStatusData.id;
     console.log('Mapping status', status, 'to ID', statusId);
 
-    // Update the membership's eligibility status
+    // Update both member_eligibility_status_id and member_status_id
     const { data: updatedMembership, error: updateError } = await supabaseAdmin
       .from('user_memberships')
       .update({ 
         member_eligibility_status_id: statusId,
+        member_status_id: statusId, // Update both columns with the same status ID
         updated_at: new Date().toISOString()
       })
       .eq('id', currentMembership.id)
@@ -140,7 +141,7 @@ export async function PATCH(
           resource: 'user_memberships',
           resource_id: currentMembership.id,
           details: {
-            field: 'member_eligibility_status_id',
+            fields: ['member_eligibility_status_id', 'member_status_id'],
             oldValue: oldStatus,
             newValue: status,
             userId: currentMembership.user_id
@@ -157,7 +158,7 @@ export async function PATCH(
     return NextResponse.json({
       success: true,
       member: updatedMembership,
-      message: `Member eligibility status updated from ${oldStatus} to ${status}`
+      message: `Member status updated from ${oldStatus} to ${status} (both eligibility and member status columns)`
     });
 
   } catch (error: any) {
