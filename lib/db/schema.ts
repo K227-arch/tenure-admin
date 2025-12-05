@@ -80,6 +80,13 @@ export const userFunnelStatuses = pgTable('user_funnel_statuses', {
   description: text('description'),
 });
 
+// Member Eligibility Status Lookup Table
+export const memberEligibilityStatuses = pgTable('member_eligibility_statuses', {
+  id: integer('id').primaryKey(),
+  name: varchar('name', { length: 50 }).notNull(),
+  description: text('description'),
+});
+
 // Users Table (matching existing structure)
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -152,6 +159,20 @@ export const membershipQueue = pgTable('membership_queue', {
   joinedAt: timestamp('joined_at').notNull().defaultNow(),
   notifiedAt: timestamp('notified_at'),
   metadata: jsonb('metadata'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+// User Memberships Table
+export const userMemberships = pgTable('user_memberships', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  memberEligibilityStatusId: integer('member_eligibility_status_id').references(() => memberEligibilityStatuses.id),
+  joinDate: timestamp('join_date'),
+  position: integer('position'),
+  subscriptionId: uuid('subscription_id'),
+  memberStatusId: integer('member_status_id'),
+  verificationStatusId: integer('verification_status_id'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });

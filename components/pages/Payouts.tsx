@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -34,7 +34,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Trophy, CheckCircle, XCircle, AlertCircle, Play, User, Mail, Phone, Calendar, CreditCard, Clock, MapPin, Search, Filter } from "lucide-react";
+import { Trophy, CheckCircle, XCircle, AlertCircle, Play, User, Mail, Phone, Calendar, CreditCard, Clock, MapPin, Search, Filter, Edit } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -51,6 +51,31 @@ async function fetchPayoutData() {
   };
 }
 
+async function fetchMemberEligibilityStatuses() {
+  const response = await fetch('/api/member-eligibility-statuses');
+  if (!response.ok) {
+    throw new Error('Failed to fetch member eligibility statuses');
+  }
+  return response.json();
+}
+
+async function updateMemberStatus(memberId: string, status: string) {
+  const response = await fetch(`/api/membership-queue/${memberId}/status`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ status }),
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to update member status');
+  }
+  
+  return response.json();
+}
+
 export default function Payouts() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedMember, setSelectedMember] = useState<any>(null);
@@ -58,12 +83,41 @@ export default function Payouts() {
   const [tenureFilter, setTenureFilter] = useState<'all' | 'monthly' | 'yearly'>('all');
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [isEditingStatus, setIsEditingStatus] = useState(false);
+  const [newStatus, setNewStatus] = useState("");
   const queryClient = useQueryClient();
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['payout-data'],
     queryFn: fetchPayoutData,
     refetchInterval: 10000, // Refetch every 10 seconds for real-time updates
+  });
+
+  const { data: statusesData } = useQuery({
+    queryKey: ['member-eligibility-statuses'],
+    queryFn: fetchMemberEligibilityStatuses,
+  });
+
+  const updateStatusMutation = useMutation({
+    mutationFn: ({ memberId, status }: { memberId: string; status: string }) =>
+      updateMemberStatus(memberId, status),
+    onSuccess: (data) => {
+      toast.success(data.message || 'Member status updated successfully');
+      queryClient.invalidateQueries({ queryKey: ['payout-data'] });
+      setIsEditingStatus(false);
+      setNewStatus("");
+      // Update the selected member with new status
+      if (selectedMember) {
+        setSelectedMember({
+          ...selectedMember,
+          member_status: data.member.status,
+          status: data.member.status
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to update member status');
+    },
   });
 
   // Real-time subscription for membership queue and payment changes
@@ -333,7 +387,7 @@ export default function Payouts() {
               })
               .map((member) => (
               <div
-                key={member.id}
+                key={member.id || member.user_id || member.queue_position}
                 className="flex items-center justify-between border-b border-border pb-4 last:border-0"
               >
                 <div className="space-y-1">
@@ -364,16 +418,33 @@ export default function Payouts() {
                       {member.member_status || member.status || 'Inactive'}
                     </Badge>
                   </div>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => {
-                      setSelectedMember(member);
-                      setIsDetailsOpen(true);
-                    }}
-                  >
-                    View Details
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => {
+                        console.log('Member object from list:', member);
+                        setSelectedMember(member);
+                        setIsEditingStatus(true);
+                        setNewStatus(member.member_status || member.status || 'Active');
+                        setIsDetailsOpen(true);
+                      }}
+                      className="h-8 w-8 p-0"
+                      title="Edit Status"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        setSelectedMember(member);
+                        setIsDetailsOpen(true);
+                      }}
+                    >
+                      View Details
+                    </Button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -420,7 +491,13 @@ export default function Payouts() {
       </Card>
 
       {/* Member Details Dialog */}
-      <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+      <Dialog open={isDetailsOpen} onOpenChange={(open) => {
+        setIsDetailsOpen(open);
+        if (!open) {
+          setIsEditingStatus(false);
+          setNewStatus("");
+        }
+      }}>
         <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-3">
@@ -488,14 +565,85 @@ export default function Payouts() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label className="text-sm font-medium text-muted-foreground">Membership Status</Label>
-                    <Badge variant={
-                      selectedMember.member_status === "Active" ? "default" : 
-                      selectedMember.member_status === "Suspended" ? "destructive" :
-                      selectedMember.member_status === "Won" ? "default" :
-                      selectedMember.member_status === "Paid" ? "default" : "secondary"
-                    }>
-                      {selectedMember.member_status || selectedMember.status || 'Active'}
-                    </Badge>
+                    <div className="flex items-center gap-2 mt-1">
+                      {!isEditingStatus ? (
+                        <>
+                          <Badge variant={
+                            selectedMember.member_status === "Active" ? "default" : 
+                            selectedMember.member_status === "Suspended" ? "destructive" :
+                            selectedMember.member_status === "Won" ? "default" :
+                            selectedMember.member_status === "Paid" ? "default" : "secondary"
+                          }>
+                            {selectedMember.member_status || selectedMember.status || 'Active'}
+                          </Badge>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setIsEditingStatus(true);
+                              setNewStatus(selectedMember.member_status || selectedMember.status || 'Active');
+                            }}
+                            className="h-6 w-6 p-0"
+                          >
+                            <Edit className="h-3 w-3" />
+                          </Button>
+                        </>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <Select value={newStatus} onValueChange={setNewStatus}>
+                            <SelectTrigger className="w-[140px] h-8">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {statusesData?.statuses?.map((status: any) => (
+                                <SelectItem key={status.id} value={status.id}>
+                                  {status.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              console.log('Selected member object:', selectedMember);
+                              console.log('Member ID:', selectedMember?.id);
+                              console.log('Member User ID:', selectedMember?.user_id);
+                              console.log('New status:', newStatus);
+                              
+                              const memberId = selectedMember?.id || selectedMember?.user_id;
+                              
+                              if (memberId && newStatus) {
+                                updateStatusMutation.mutate({
+                                  memberId: memberId,
+                                  status: newStatus
+                                });
+                              } else {
+                                console.error('Missing member ID or status:', { 
+                                  memberId: memberId, 
+                                  newStatus 
+                                });
+                                toast.error('Missing member ID or status');
+                              }
+                            }}
+                            disabled={updateStatusMutation.isPending}
+                            className="h-8 px-2"
+                          >
+                            {updateStatusMutation.isPending ? 'Saving...' : 'Save'}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setIsEditingStatus(false);
+                              setNewStatus("");
+                            }}
+                            className="h-8 px-2"
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <div>
                     <Label className="text-sm font-medium text-muted-foreground">Email Verified</Label>
