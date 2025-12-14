@@ -51,6 +51,12 @@ export async function send2FAEmail(email: string, code: string, type: 'login' | 
     </html>
   `;
 
+  // Development mode: Log verification code to console (but still try to send email)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🔑 DEVELOPMENT MODE - Verification Code for', email, ':', code);
+    console.log('📧 Attempting to send email with subject:', subject);
+  }
+
   try {
     await transporter.sendMail({
       from: `"Home Solutions Admin" <${process.env.SMTP_USER}>`,
@@ -61,6 +67,11 @@ export async function send2FAEmail(email: string, code: string, type: 'login' | 
     return { success: true };
   } catch (error) {
     console.error('Email send error:', error);
+    
+    // Fallback: Log the code to console even in production if email fails
+    console.log('🔑 EMAIL FAILED - Verification Code for', email, ':', code);
+    console.log('📧 Use this code to continue:', code);
+    
     return { success: false, error };
   }
 }
