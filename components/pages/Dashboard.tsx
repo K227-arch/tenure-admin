@@ -74,7 +74,6 @@ export default function Dashboard() {
   const activityData = null;
 
   // Use only real API data from Supabase
-  const revenueData = data?.charts?.revenueData || [];
   const memberData = data?.charts?.memberData || [];
   const recentActivity = data?.recentActivity || [];
 
@@ -183,51 +182,7 @@ export default function Dashboard() {
       </div>
 
       {/* Charts */}
-      <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-2">
-        {/* Revenue Chart */}
-        <Card className="shadow-card">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base sm:text-lg">Revenue Trend</CardTitle>
-              <div className="flex items-center gap-1">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="text-xs text-muted-foreground">Real-time</span>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="w-full h-[200px] sm:h-[250px] lg:h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={revenueData}>
-                <defs>
-                  <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(var(--success))" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="hsl(var(--success))" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
-                <YAxis stroke="hsl(var(--muted-foreground))" />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--card))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "var(--radius)",
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="revenue"
-                  stroke="hsl(var(--success))"
-                  fill="url(#revenueGradient)"
-                  strokeWidth={2}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-
+      <div className="grid gap-4 sm:gap-6 grid-cols-1">
         {/* Member Growth Chart */}
         <Card className="shadow-card">
           <CardHeader>

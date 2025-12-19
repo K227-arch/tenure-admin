@@ -15,6 +15,8 @@ import {
   adminAlerts,
   userPayments,
   newsfeedPosts,
+  kycStatuses,
+  kycVerification,
   type NewAdminAccount,
   type NewAdminSession,
   type NewTwoFactorAuth,
@@ -24,6 +26,8 @@ import {
   type NewTransaction,
   type NewUserPayment,
   type NewNewsfeedPost,
+  type NewKycStatus,
+  type NewKycVerification,
 } from './schema';
 
 // Admin Account Queries
@@ -708,5 +712,165 @@ export const newsfeedPostQueries = {
       total: totalResult.count,
       published: publishedResult.count,
     };
+  },
+};
+
+// KYC Status Queries
+export const kycStatusQueries = {
+  getAll: async () => {
+    return await db.select().from(kycStatuses).orderBy(kycStatuses.name);
+  },
+
+  findById: async (id: number) => {
+    const result = await db.select().from(kycStatuses).where(eq(kycStatuses.id, id)).limit(1);
+    return result[0] || null;
+  },
+
+  create: async (data: NewKycStatus) => {
+    const result = await db.insert(kycStatuses).values(data).returning();
+    return result[0];
+  },
+};
+
+// KYC Verification Queries
+export const kycVerificationQueries = {
+  getAll: async (limit = 100, offset = 0, filters?: {
+    status?: string;
+    riskLevel?: string;
+    userId?: string;
+    search?: string;
+  }) => {
+    let query = db
+      .select({
+        kyc: kycVerification,
+        user: {
+          id: users.id,
+          email: users.email,
+          name: users.name,
+          createdAt: users.createdAt,
+        },
+        reviewer: {
+          id: adminAccounts.id,
+          name: adminAccounts.name,
+          email: adminAccounts.email,
+        },
+      })
+      .from(kycVerification)
+      .leftJoin(users, eq(kycVerification.userId, users.id))
+      .leftJoin(adminAccounts, eq(kycVerification.reviewerId, adminAccounts.id));
+
+    if (filters) {
+      const conditions = [];
+      if (filters.status) conditions.push(eq(kycVerification.status, filters.status as any));
+      if (filters.riskLevel) conditions.push(eq(kycVerification.riskLevel, filters.riskLevel as any));
+      if (filters.userId) conditions.push(eq(kycVerification.userId, filters.userId));
+      
+      if (conditions.length > 0) {
+        query = query.where(and(...conditions)) as any;
+      }
+    }
+
+    return await query.orderBy(desc(kycVerification.createdAt)).limit(limit).offset(offset);
+  },
+
+  findById: async (id: string) => {
+    const result = await db
+      .select({
+        kyc: kycVerification,
+        user: {
+          id: users.id,
+          email: users.email,
+          name: users.name,
+          createdAt: users.createdAt,
+        },
+        reviewer: {
+          id: adminAccounts.id,
+          name: adminAccounts.name,
+          email: adminAccounts.email,
+        },
+      })
+      .from(kycVerification)
+      .leftJoin(users, eq(kycVerification.userId, users.id))
+      .leftJoin(adminAccounts, eq(kycVerification.reviewerId, adminAccounts.id))
+      .where(eq(kycVerification.id, id))
+      .limit(1);
+    return result[0] || null;
+  },
+
+  findByUserId: async (userId: string) => {
+    return await db
+      .select()
+      .from(kycVerification)
+      .where(eq(kycVerification.userId, userId))
+      .orderBy(desc(kycVerification.createdAt));
+  },
+
+  create: async (data: NewKycVerification) => {
+    const result = await db.insert(kycVerification).values({
+      ...data,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return result[0];
+  },
+
+  update: async (id: string, data: Partial<NewKycVerification>) => {
+    const result = await db
+      .update(kycVerification)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(kycVerification.id, id))
+      .returning();
+    return result[0];
+  },
+
+  updateStatus: async (id: string, status: string, reviewerId?: number, notes?: string, rejectionReason?: string) => {
+    const updateData: any = {
+      status,
+      reviewedAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    if (reviewerId) updateData.reviewerId = reviewerId;
+    if (notes) updateData.notes = notes;
+    if (rejectionReason) updateData.rejectionReason = rejectionReason;
+
+    const result = await db
+      .update(kycVerification)
+      .set(updateData)
+      .where(eq(kycVerification.id, id))
+      .returning();
+    return result[0];
+  },
+
+  getStats: async () => {
+    const [totalResult] = await db.select({ count: count() }).from(kycVerification);
+    const [pendingResult] = await db
+      .select({ count: count() })
+      .from(kycVerification)
+      .where(eq(kycVerification.status, 'pending'));
+    const [approvedResult] = await db
+      .select({ count: count() })
+      .from(kycVerification)
+      .where(eq(kycVerification.status, 'approved'));
+    const [rejectedResult] = await db
+      .select({ count: count() })
+      .from(kycVerification)
+      .where(eq(kycVerification.status, 'rejected'));
+    const [underReviewResult] = await db
+      .select({ count: count() })
+      .from(kycVerification)
+      .where(eq(kycVerification.status, 'under_review'));
+
+    return {
+      total: totalResult.count,
+      pending: pendingResult.count,
+      approved: approvedResult.count,
+      rejected: rejectedResult.count,
+      underReview: underReviewResult.count,
+    };
+  },
+
+  delete: async (id: string) => {
+    await db.delete(kycVerification).where(eq(kycVerification.id, id));
   },
 };

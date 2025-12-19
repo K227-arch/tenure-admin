@@ -9,6 +9,9 @@ const transporter = nodemailer.createTransport({
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS || process.env.SMTP_PASSWORD, // Support both variable names
   },
+  tls: {
+    rejectUnauthorized: false, // Allow self-signed certificates in development
+  },
 });
 
 export async function send2FAEmail(email: string, code: string, type: 'login' | 'setup') {
