@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { sql } from 'drizzle-orm';
+import { sumsubService } from '@/lib/sumsub/service';
 
 export async function GET(request: Request) {
   try {
@@ -9,36 +10,12 @@ export async function GET(request: Request) {
     
     console.log('Fetching KYC data with status filter:', status);
 
-    // First, discover the actual table structures
-    const kycTableStructure = await db.execute(sql`
-      SELECT column_name, data_type
-      FROM information_schema.columns 
-      WHERE table_name = 'kyc_verification'
-      ORDER BY ordinal_position;
+    // Get available statuses from kyc_statuses table
+    const availableStatuses = await db.execute(sql`
+      SELECT * FROM kyc_statuses ORDER BY id
     `);
 
-    const statusTableStructure = await db.execute(sql`
-      SELECT column_name, data_type
-      FROM information_schema.columns 
-      WHERE table_name = 'kyc_statuses'
-      ORDER BY ordinal_position;
-    `);
-
-    console.log('KYC verification table columns:', kycTableStructure);
-    console.log('KYC statuses table columns:', statusTableStructure);
-
-    // Check if kyc_statuses table exists and get statuses
-    let availableStatuses = [];
-    try {
-      availableStatuses = await db.execute(sql`
-        SELECT * FROM kyc_statuses ORDER BY id
-      `);
-      console.log('Available KYC statuses:', availableStatuses);
-    } catch (statusError) {
-      console.log('kyc_statuses table might not exist:', statusError);
-    }
-
-    // Get data from kyc_verification with proper joins using kyc_status_id
+    // Get data from kyc_verification with proper joins and Sumsub data
     let kycQuery = sql`
       SELECT 
         kv.*,
@@ -83,9 +60,6 @@ export async function GET(request: Request) {
     kycQuery = sql`${kycQuery} ORDER BY kv.created_at DESC LIMIT 100`;
 
     const kycData = await db.execute(kycQuery);
-    
-    console.log('Raw KYC data from database:', kycData);
-    console.log('First KYC record structure:', kycData[0]);
 
     // Get statistics using kyc_status_id and kyc_statuses lookup table
     const statsQuery = await db.execute(sql`
@@ -102,8 +76,6 @@ export async function GET(request: Request) {
       SELECT COUNT(*) as total, 'total' as status_name, COUNT(*) as count
       FROM kyc_verification
     `);
-
-    console.log('Stats query result:', statsQuery);
 
     // Process statistics
     const stats: any = {
@@ -131,16 +103,8 @@ export async function GET(request: Request) {
       }
     });
 
-    console.log('Processed stats:', stats);
-
-    console.log('KYC stats:', stats);
-
-    // Transform data for frontend - be very flexible with column names
-    const transformedData = kycData.map((item: any, index: number) => {
-      if (index === 0) {
-        console.log('Sample KYC item columns:', Object.keys(item));
-        console.log('Raw KYC item:', item);
-      }
+    // Transform data for frontend
+    const transformedData = kycData.map((item: any) => {
       
       return {
         id: item.id,
@@ -159,10 +123,17 @@ export async function GET(request: Request) {
           name: item.reviewer_name,
           email: item.reviewer_email,
         } : null,
+        // Sum & Substance specific data
+        sumsub: {
+          applicantId: item.sumsub_applicant_id,
+          inspectionId: item.sumsub_inspection_id,
+          externalUserId: item.sumsub_external_user_id,
+          score: item.sumsub_score ? parseFloat(item.sumsub_score) : null,
+          reviewResult: item.sumsub_review_result,
+          webhookData: item.sumsub_webhook_data,
+        },
       };
     });
-
-    console.log('Transformed data:', transformedData);
 
     return NextResponse.json({
       success: true,

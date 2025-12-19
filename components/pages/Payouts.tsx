@@ -34,7 +34,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Trophy, CheckCircle, XCircle, AlertCircle, Play, User, Mail, Phone, Calendar, CreditCard, Clock, MapPin, Search, Filter, Edit } from "lucide-react";
+import { Trophy, CheckCircle, XCircle, AlertCircle, Play, User, Mail, Phone, Calendar, CreditCard, Clock, MapPin, Search, Filter, Edit, Shield, FileText, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -76,10 +76,20 @@ async function updateMemberStatus(memberId: string, status: string) {
   return response.json();
 }
 
+async function fetchUserKYC(userId: string) {
+  const response = await fetch(`/api/kyc/user/${userId}`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch user KYC data');
+  }
+  return response.json();
+}
+
 export default function Payouts() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedMember, setSelectedMember] = useState<any>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [selectedMemberKYC, setSelectedMemberKYC] = useState<any>(null);
+  const [isLoadingKYC, setIsLoadingKYC] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -119,6 +129,22 @@ export default function Payouts() {
       toast.error(error.message || 'Failed to update member status');
     },
   });
+
+  // Function to load KYC data for selected member
+  const loadMemberKYC = async (userId: string) => {
+    console.log('Loading KYC data for user ID:', userId);
+    setIsLoadingKYC(true);
+    try {
+      const response = await fetchUserKYC(userId);
+      console.log('KYC API response:', response);
+      setSelectedMemberKYC(response.data);
+    } catch (error) {
+      console.error('Failed to load KYC data:', error);
+      setSelectedMemberKYC(null);
+    } finally {
+      setIsLoadingKYC(false);
+    }
+  };
 
   // Real-time subscription for membership queue and payment changes
   useEffect(() => {
@@ -386,6 +412,11 @@ export default function Payouts() {
                         setIsEditingStatus(true);
                         setNewStatus(member.member_status || member.status || 'Active');
                         setIsDetailsOpen(true);
+                        // Load KYC data for this member
+                        const userId = member.user_id || member.users?.id;
+                        if (userId) {
+                          loadMemberKYC(userId);
+                        }
                       }}
                       className="h-8 w-8 p-0"
                       title="Edit Status"
@@ -396,8 +427,17 @@ export default function Payouts() {
                       variant="outline" 
                       size="sm"
                       onClick={() => {
+                        console.log('View Details clicked for member:', member);
                         setSelectedMember(member);
                         setIsDetailsOpen(true);
+                        // Load KYC data for this member
+                        const userId = member.user_id || member.users?.id;
+                        console.log('Extracted user ID:', userId);
+                        if (userId) {
+                          loadMemberKYC(userId);
+                        } else {
+                          console.warn('No user ID found for member:', member);
+                        }
                       }}
                     >
                       View Details
@@ -450,10 +490,13 @@ export default function Payouts() {
 
       {/* Member Details Dialog */}
       <Dialog open={isDetailsOpen} onOpenChange={(open) => {
+        console.log('Dialog open state changed:', open);
         setIsDetailsOpen(open);
         if (!open) {
           setIsEditingStatus(false);
           setNewStatus("");
+          setSelectedMemberKYC(null);
+          setIsLoadingKYC(false);
         }
       }}>
         <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
@@ -475,7 +518,7 @@ export default function Payouts() {
               </div>
             </DialogTitle>
             <DialogDescription>
-              Complete member profile and account information
+              Complete member profile and account information with KYC details
             </DialogDescription>
           </DialogHeader>
           {selectedMember && (
@@ -703,6 +746,106 @@ export default function Payouts() {
                     </div>
                   )}
                 </div>
+              </div>
+
+              {/* KYC Information */}
+              <div className="space-y-4">
+                <h4 className="font-semibold text-foreground border-b pb-2 flex items-center gap-2">
+                  <Shield className="h-4 w-4" />
+                  KYC Verification Status
+                </h4>
+                {isLoadingKYC ? (
+                  <div className="bg-muted/50 rounded-lg p-4">
+                    <p className="text-sm text-muted-foreground">Loading KYC information...</p>
+                  </div>
+                ) : selectedMemberKYC ? (
+                  <div className="bg-muted/50 rounded-lg p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Verification Status</span>
+                      <Badge variant={
+                        selectedMemberKYC.status === "approved" ? "default" : 
+                        selectedMemberKYC.status === "rejected" ? "destructive" :
+                        selectedMemberKYC.status === "pending" ? "secondary" : "outline"
+                      } className={
+                        selectedMemberKYC.status === "pending" ? "bg-[#9CA3AF] text-white" : ""
+                      }>
+                        {selectedMemberKYC.status === "approved" && <CheckCircle className="h-3 w-3 mr-1" />}
+                        {selectedMemberKYC.status === "rejected" && <XCircle className="h-3 w-3 mr-1" />}
+                        {selectedMemberKYC.status === "pending" && <Clock className="h-3 w-3 mr-1" />}
+                        {selectedMemberKYC.status?.charAt(0).toUpperCase() + selectedMemberKYC.status?.slice(1)}
+                      </Badge>
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">KYC ID</span>
+                      <span className="text-sm font-mono">#{selectedMemberKYC.id}</span>
+                    </div>
+
+                    {selectedMemberKYC.submittedAt && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">Submitted Date</span>
+                        <span className="text-sm">
+                          {new Date(selectedMemberKYC.submittedAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                    )}
+
+                    {selectedMemberKYC.reviewedAt && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">Reviewed Date</span>
+                        <span className="text-sm">
+                          {new Date(selectedMemberKYC.reviewedAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                    )}
+
+                    {selectedMemberKYC.documents && selectedMemberKYC.documents.length > 0 && (
+                      <div className="space-y-2">
+                        <span className="text-sm text-muted-foreground">Documents Submitted</span>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedMemberKYC.documents.map((doc: any, index: number) => (
+                            <Badge key={index} variant="outline" className="text-xs">
+                              <FileText className="h-3 w-3 mr-1" />
+                              {doc.type || doc.name || `Document ${index + 1}`}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedMemberKYC.reviewer && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">Reviewed By</span>
+                        <span className="text-sm">{selectedMemberKYC.reviewer.name}</span>
+                      </div>
+                    )}
+
+                    {selectedMemberKYC.notes && (
+                      <div className="space-y-1">
+                        <span className="text-sm text-muted-foreground">Review Notes</span>
+                        <p className="text-sm bg-background rounded p-2 border">
+                          {selectedMemberKYC.notes}
+                        </p>
+                      </div>
+                    )}
+
+                    {selectedMemberKYC.rejectionReason && (
+                      <div className="space-y-1">
+                        <span className="text-sm text-muted-foreground text-red-600">Rejection Reason</span>
+                        <p className="text-sm bg-red-50 rounded p-2 border border-red-200 text-red-800">
+                          {selectedMemberKYC.rejectionReason}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="bg-muted/50 rounded-lg p-4">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <AlertCircle className="h-4 w-4" />
+                      <p className="text-sm">No KYC verification data found for this user.</p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Account Timeline */}

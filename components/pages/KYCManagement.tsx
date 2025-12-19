@@ -17,10 +17,18 @@ import {
   Users,
   FileText,
   Calendar,
-  RefreshCw
+  RefreshCw,
+  ExternalLink,
+  RotateCcw,
+  Star,
+  Zap,
+  Database,
+  Activity,
+  TestTube
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import SumsubCredentialsCheck from "@/components/kyc/SumsubCredentialsCheck";
 
 // KYC Data interface
 interface KYCData {
@@ -39,6 +47,14 @@ interface KYCData {
     id: number;
     name: string;
     email: string;
+  };
+  sumsub?: {
+    applicantId?: string;
+    inspectionId?: string;
+    externalUserId?: string;
+    score?: number;
+    reviewResult?: any;
+    webhookData?: any;
   };
 }
 
@@ -90,11 +106,22 @@ async function updateKYCStatus(kycId: string, status: string, notes?: string, re
 const getStatusColor = (status: string) => {
   switch (status) {
     case 'approved': return 'bg-green-100 text-green-800 border-green-200';
-    case 'rejected': return 'bg-red-100 text-red-800 border-red-200';
-    case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+    case 'rejected': return 'bg-gray-200 text-gray-700 border-gray-300'; // Loading/gray color
+    case 'pending': return 'bg-gray-100 border-gray-400'; // Will use custom color
     case 'under_review': return 'bg-blue-100 text-blue-800 border-blue-200';
     default: return 'bg-gray-100 text-gray-800 border-gray-200';
   }
+};
+
+const getStatusStyle = (status: string) => {
+  if (status === 'pending') {
+    return {
+      backgroundColor: '#F3F4F6', // Light gray background
+      color: '#9CA3AF', // Your specified color #9CA3AF
+      borderColor: '#9CA3AF'
+    };
+  }
+  return {};
 };
 
 const getStatusIcon = (status: string) => {
@@ -107,14 +134,7 @@ const getStatusIcon = (status: string) => {
   }
 };
 
-const getRiskLevelColor = (riskLevel: string) => {
-  switch (riskLevel) {
-    case 'low': return 'bg-green-100 text-green-800';
-    case 'medium': return 'bg-yellow-100 text-yellow-800';
-    case 'high': return 'bg-red-100 text-red-800';
-    default: return 'bg-gray-100 text-gray-800';
-  }
-};
+
 
 export default function KYCManagement() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -130,26 +150,10 @@ export default function KYCManagement() {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [sumsubTest, setSumsubTest] = useState<any>(null);
+  const [testLoading, setTestLoading] = useState(false);
 
-  // Setup KYC tables and sample data
-  const setupKYCData = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch('/api/kyc/setup', { method: 'POST' });
-      const result = await response.json();
-      
-      if (result.success) {
-        toast.success(result.message);
-        loadKYCData(); // Reload data after setup
-      } else {
-        toast.error(result.message || 'Setup failed');
-      }
-    } catch (err) {
-      toast.error('Failed to setup KYC data');
-    } finally {
-      setLoading(false);
-    }
-  };
+
 
   // Load available statuses from lookup table
   const loadAvailableStatuses = async () => {
@@ -192,6 +196,8 @@ export default function KYCManagement() {
   useEffect(() => {
     loadAvailableStatuses();
     loadKYCData();
+    // Auto-test Sumsub connection on page load
+    testSumsubConnection();
   }, [statusFilter]);
 
   // Handle status update
@@ -202,6 +208,118 @@ export default function KYCManagement() {
       loadKYCData(); // Reload data
     } catch (err) {
       toast.error('Failed to update KYC status');
+    }
+  };
+
+  // Handle KYC reset for Sumsub
+  const handleKYCReset = async (userId: string) => {
+    try {
+      const response = await fetch('/api/kyc/sumsub/reset', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId }),
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to reset KYC');
+      }
+
+      toast.success('KYC reset successfully');
+      loadKYCData(); // Reload data
+    } catch (err) {
+      toast.error('Failed to reset KYC');
+    }
+  };
+
+  // Open Sumsub dashboard
+  const openSumsubDashboard = (applicantId: string) => {
+    const baseUrl = process.env.NODE_ENV === 'production' 
+      ? 'https://cockpit.sumsub.com' 
+      : 'https://cockpit.sumsub.com';
+    window.open(`${baseUrl}/checkus/#/applicant/${applicantId}`, '_blank');
+  };
+
+  // Test Sumsub connection
+  const testSumsubConnection = async () => {
+    try {
+      setTestLoading(true);
+      const response = await fetch('/api/kyc/sumsub/test');
+      const result = await response.json();
+      setSumsubTest(result);
+      
+      if (result.success) {
+        toast.success('Sum & Substance connection successful!');
+      } else {
+        toast.error('Sum & Substance connection failed');
+      }
+    } catch (err) {
+      toast.error('Failed to test Sum & Substance connection');
+      setSumsubTest({
+        success: false,
+        error: 'Network error',
+        details: err instanceof Error ? err.message : 'Unknown error'
+      });
+    } finally {
+      setTestLoading(false);
+    }
+  };
+
+  // Create test applicant
+  const createTestApplicant = async () => {
+    try {
+      setTestLoading(true);
+      const response = await fetch('/api/kyc/sumsub/test', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ testType: 'create_test_applicant' }),
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        toast.success('Test applicant created successfully!');
+        // Refresh the connection test to show updated data
+        await testSumsubConnection();
+      } else {
+        toast.error('Failed to create test applicant');
+      }
+    } catch (err) {
+      toast.error('Failed to create test applicant');
+    } finally {
+      setTestLoading(false);
+    }
+  };
+
+  // Sync data from Sumsub
+  const syncSumsubData = async () => {
+    try {
+      setTestLoading(true);
+      const response = await fetch('/api/kyc/sumsub/sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ action: 'sync_all_applicants' }),
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        toast.success(`Synced ${result.syncedCount} applicants from Sum & Substance`);
+        loadKYCData(); // Refresh KYC data
+      } else {
+        toast.error('Failed to sync data from Sum & Substance');
+      }
+    } catch (err) {
+      toast.error('Failed to sync Sum & Substance data');
+    } finally {
+      setTestLoading(false);
     }
   };
 
@@ -269,29 +387,169 @@ export default function KYCManagement() {
             Refresh
           </Button>
 
-          <Button 
-            variant="outline" 
-            className="w-full sm:w-auto"
-            onClick={async () => {
-              try {
-                const response = await fetch('/api/kyc/check-schema');
-                const result = await response.json();
-                console.log('Database Schema:', result);
-                toast.success('Check console for database schema info');
-              } catch (err) {
-                toast.error('Failed to check schema');
-              }
-            }}
-          >
-            <FileText className="h-4 w-4 mr-2" />
-            Check DB Schema
-          </Button>
           <Button variant="outline" className="w-full sm:w-auto">
             <Download className="h-4 w-4 mr-2" />
             Export Report
           </Button>
         </div>
       </div>
+
+      {/* Sum & Substance Credentials Check */}
+      <SumsubCredentialsCheck testResult={sumsubTest} />
+
+      {/* SCardTitle className="flex items-center">
+            <Zap className="h-5 w-5 mr-2 text-blue-600" />
+            Sum & Substance Integration
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              <Button 
+                onClick={testSumsubConnection}
+                disabled={testLoading}
+                variant="outline"
+                className="flex items-center"
+              >
+                {testLoading ? (
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <TestTube className="h-4 w-4 mr-2" />
+                )}
+                Test Connection
+              </Button>
+
+              <Button 
+                onClick={createTestApplicant}
+                disabled={testLoading}
+                variant="outline"
+                className="flex items-center"
+              >
+                {testLoading ? (
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Users className="h-4 w-4 mr-2" />
+                )}
+                Create Test Applicant
+              </Button>
+
+              <Button 
+                onClick={syncSumsubData}
+                disabled={testLoading}
+                variant="outline"
+                className="flex items-center"
+              >
+                {testLoading ? (
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Database className="h-4 w-4 mr-2" />
+                )}
+                Sync Data
+              </Button>
+            </div>
+
+            {/* Test Results */}
+            {sumsubTest && (
+              <div className="mt-4 p-4 rounded-lg border bg-white">
+                <div className="flex items-center mb-2">
+                  <Activity className="h-4 w-4 mr-2" />
+                  <span className="font-medium">Connection Status</span>
+                  <Badge 
+                    className={`ml-2 ${sumsubTest.success ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}
+                  >
+                    {sumsubTest.success ? 'Connected' : 'Failed'}
+                  </Badge>
+                </div>
+
+                {sumsubTest.success ? (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <span className="font-medium">Environment:</span>
+                        <span className="ml-2 text-blue-600">Sandbox</span>
+                      </div>
+                      <div>
+                        <span className="font-medium">App Token:</span>
+                        <span className="ml-2 font-mono text-xs">{sumsubTest.appToken}</span>
+                      </div>
+                      <div>
+                        <span className="font-medium">Applicants:</span>
+                        <span className="ml-2">{sumsubTest.tests?.applicants?.count || 0}</span>
+                      </div>
+                    </div>
+
+                    {/* Available Data */}
+                    <div className="border-t pt-3">
+                      <p className="text-xs font-medium mb-2">Available Data from Sum & Substance:</p>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                        <Badge variant="outline" className="justify-center">
+                          <CheckCircle className="h-3 w-3 mr-1 text-green-600" />
+                          Applicants
+                        </Badge>
+                        <Badge variant="outline" className="justify-center">
+                          <CheckCircle className="h-3 w-3 mr-1 text-green-600" />
+                          Documents
+                        </Badge>
+                        <Badge variant="outline" className="justify-center">
+                          <CheckCircle className="h-3 w-3 mr-1 text-green-600" />
+                          Status
+                        </Badge>
+                        <Badge variant="outline" className="justify-center">
+                          <CheckCircle className="h-3 w-3 mr-1 text-green-600" />
+                          Risk Scores
+                        </Badge>
+                        <Badge variant="outline" className="justify-center">
+                          <CheckCircle className="h-3 w-3 mr-1 text-green-600" />
+                          Reviews
+                        </Badge>
+                        <Badge variant="outline" className="justify-center">
+                          <CheckCircle className="h-3 w-3 mr-1 text-green-600" />
+                          Checks
+                        </Badge>
+                        <Badge variant="outline" className="justify-center">
+                          {sumsubTest.tests?.statistics?.success ? (
+                            <CheckCircle className="h-3 w-3 mr-1 text-green-600" />
+                          ) : (
+                            <XCircle className="h-3 w-3 mr-1 text-gray-400" />
+                          )}
+                          Statistics
+                        </Badge>
+                        <Badge variant="outline" className="justify-center">
+                          {sumsubTest.tests?.webhookLogs?.success ? (
+                            <CheckCircle className="h-3 w-3 mr-1 text-green-600" />
+                          ) : (
+                            <XCircle className="h-3 w-3 mr-1 text-gray-400" />
+                          )}
+                          Webhooks
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-red-600 text-sm">
+                    <p className="font-medium">Error: {sumsubTest.error}</p>
+                    <p>{sumsubTest.details}</p>
+                    {sumsubTest.troubleshooting && (
+                      <div className="mt-2">
+                        <p className="font-medium">Troubleshooting:</p>
+                        <ul className="list-disc list-inside ml-2">
+                          {Object.entries(sumsubTest.troubleshooting).map(([key, value]) => (
+                            <li key={key}>{value as string}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="mt-2 text-xs text-muted-foreground">
+                  Last tested: {sumsubTest.timestamp ? new Date(sumsubTest.timestamp).toLocaleString() : 'Never'}
+                </div>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Stats Cards */}
       <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
@@ -410,7 +668,7 @@ export default function KYCManagement() {
                   <th className="text-left py-3 px-4 font-medium">User</th>
                   <th className="text-left py-3 px-4 font-medium">KYC ID</th>
                   <th className="text-left py-3 px-4 font-medium">Status</th>
-                  <th className="text-left py-3 px-4 font-medium">Risk Level</th>
+                  <th className="text-left py-3 px-4 font-medium">Score</th>
                   <th className="text-left py-3 px-4 font-medium">Documents</th>
                   <th className="text-left py-3 px-4 font-medium">Submitted</th>
                   <th className="text-left py-3 px-4 font-medium">Actions</th>
@@ -429,15 +687,31 @@ export default function KYCManagement() {
                       <code className="text-sm bg-muted px-2 py-1 rounded">{item.id}</code>
                     </td>
                     <td className="py-3 px-4">
-                      <Badge className={`${getStatusColor(item.status)} flex items-center gap-1 w-fit`}>
-                        {getStatusIcon(item.status)}
-                        {item.status.replace('_', ' ')}
-                      </Badge>
+                      <div className="flex flex-col gap-1">
+                        <Badge 
+                          className={`${getStatusColor(item.status)} flex items-center gap-1 w-fit`}
+                          style={getStatusStyle(item.status)}
+                        >
+                          {getStatusIcon(item.status)}
+                          {item.status.replace('_', ' ')}
+                        </Badge>
+                        {item.sumsub?.applicantId && (
+                          <Badge variant="outline" className="text-xs w-fit">
+                            <ExternalLink className="h-3 w-3 mr-1" />
+                            Sumsub
+                          </Badge>
+                        )}
+                      </div>
                     </td>
                     <td className="py-3 px-4">
-                      <Badge className={`${getRiskLevelColor(item.riskLevel)} w-fit`}>
-                        {item.riskLevel}
-                      </Badge>
+                      {item.sumsub?.score ? (
+                        <div className="flex items-center gap-1">
+                          <Star className="h-4 w-4 text-yellow-500" />
+                          <span className="font-medium">{item.sumsub.score.toFixed(1)}</span>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex flex-wrap gap-1">
@@ -459,6 +733,20 @@ export default function KYCManagement() {
                         <Button size="sm" variant="outline">
                           <Eye className="h-4 w-4" />
                         </Button>
+                        
+                        {/* Sumsub Dashboard Link */}
+                        {item.sumsub?.applicantId && (
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => openSumsubDashboard(item.sumsub.applicantId!)}
+                            title="View in Sumsub Dashboard"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                        )}
+
+                        {/* Status Update Actions */}
                         {item.status === 'pending' && (
                           <>
                             <Button 
@@ -480,6 +768,20 @@ export default function KYCManagement() {
                               <XCircle className="h-4 w-4" />
                             </Button>
                           </>
+                        )}
+
+                        {/* Reset KYC for rejected cases */}
+                        {item.status === 'rejected' && item.sumsub?.applicantId && (
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            className="text-blue-600 hover:text-blue-700"
+                            onClick={() => handleKYCReset(item.userId)}
+                            disabled={loading}
+                            title="Reset KYC for resubmission"
+                          >
+                            <RotateCcw className="h-4 w-4" />
+                          </Button>
                         )}
                       </div>
                     </td>
