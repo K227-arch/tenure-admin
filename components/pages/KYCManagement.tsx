@@ -394,10 +394,10 @@ export default function KYCManagement() {
         </div>
       </div>
 
-      {/* Sum & Substance Credentials Check */}
-      <SumsubCredentialsCheck testResult={sumsubTest} />
-
-      {/* SCardTitle className="flex items-center">
+      {/* Sum & Substance Integration */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
             <Zap className="h-5 w-5 mr-2 text-blue-600" />
             Sum & Substance Integration
           </CardTitle>
