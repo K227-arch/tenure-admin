@@ -15,12 +15,9 @@ import {
   Eye,
   AlertTriangle,
   Users,
-  FileText,
   Calendar,
   RefreshCw,
-  Database,
-  Edit,
-  Trash2
+  Database
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
@@ -71,6 +68,15 @@ async function fetchKYCData(filters?: { status?: string; limit?: number; offset?
   return response.json();
 }
 
+// Fetch real-time KYC stats from database
+async function fetchKYCStats() {
+  const response = await fetch('/api/kyc?stats_only=true');
+  if (!response.ok) {
+    throw new Error('Failed to fetch KYC stats');
+  }
+  return response.json();
+}
+
 // Update KYC status
 async function updateKYCStatus(kycId: string, status: string, notes?: string, rejectionReason?: string) {
   const response = await fetch(`/api/kyc`, {
@@ -94,22 +100,39 @@ async function updateKYCStatus(kycId: string, status: string, notes?: string, re
 }
 
 const getStatusColor = (status: string) => {
-  switch (status) {
+  const normalizedStatus = status.toLowerCase();
+  switch (normalizedStatus) {
+    case 'verified': 
     case 'approved': return 'bg-green-100 text-green-800 border-green-200';
     case 'rejected': return 'bg-red-100 text-red-800 border-red-200';
     case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+    case 'in review':
     case 'under_review': return 'bg-blue-100 text-blue-800 border-blue-200';
     default: return 'bg-gray-100 text-gray-800 border-gray-200';
   }
 };
 
 const getStatusIcon = (status: string) => {
-  switch (status) {
+  const normalizedStatus = status.toLowerCase();
+  switch (normalizedStatus) {
+    case 'verified':
     case 'approved': return <CheckCircle className="h-4 w-4" />;
     case 'rejected': return <XCircle className="h-4 w-4" />;
     case 'pending': return <Clock className="h-4 w-4" />;
+    case 'in review':
     case 'under_review': return <AlertTriangle className="h-4 w-4" />;
     default: return <Clock className="h-4 w-4" />;
+  }
+};
+
+const getStatusDisplayText = (status: string) => {
+  const normalizedStatus = status.toLowerCase();
+  switch (normalizedStatus) {
+    case 'verified':
+    case 'approved': return 'verified';
+    case 'in review':
+    case 'under_review': return 'in review';
+    default: return status.replace('_', ' ').toLowerCase();
   }
 };
 
@@ -147,17 +170,22 @@ export default function KYCManagement() {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetchKYCData({ status: statusFilter });
       
-      if (!response.success) {
-        setError(response.error || 'Failed to load KYC data');
+      // Fetch both data and real-time stats
+      const [dataResponse, statsResponse] = await Promise.all([
+        fetchKYCData({ status: statusFilter }),
+        fetchKYCStats()
+      ]);
+      
+      if (!dataResponse.success) {
+        setError(dataResponse.error || 'Failed to load KYC data');
         setKycData([]);
         setStats({ total: 0, pending: 0, approved: 0, rejected: 0, underReview: 0 });
         return;
       }
       
       // Transform the data to match our interface
-      const transformedData = response.data.map((record: any) => ({
+      const transformedData = dataResponse.data.map((record: any) => ({
         id: record.id,
         userId: record.userId,
         userName: record.userName || 'Unknown',
@@ -175,7 +203,14 @@ export default function KYCManagement() {
       }));
       
       setKycData(transformedData);
-      setStats(response.stats || { total: 0, pending: 0, approved: 0, rejected: 0, underReview: 0 });
+      
+      // Use real-time stats from the dedicated stats endpoint
+      if (statsResponse.success) {
+        setStats(statsResponse.stats || { total: 0, pending: 0, approved: 0, rejected: 0, underReview: 0 });
+      } else {
+        // Fallback to stats from data response
+        setStats(dataResponse.stats || { total: 0, pending: 0, approved: 0, rejected: 0, underReview: 0 });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load KYC data');
       toast.error('Failed to load KYC data');
@@ -216,7 +251,7 @@ export default function KYCManagement() {
   const submitReview = () => {
     if (!selectedKyc || !reviewAction) return;
     
-    const status = reviewAction === 'approve' ? 'approved' : 'rejected';
+    const status = reviewAction === 'approve' ? 'Verified' : 'Rejected';  // Use database status names
     handleStatusUpdate(
       selectedKyc.id, 
       status, 
@@ -328,7 +363,7 @@ export default function KYCManagement() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center">
               <CheckCircle className="h-4 w-4 mr-2" />
-              Approved
+              Verified
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -352,7 +387,7 @@ export default function KYCManagement() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center">
               <AlertTriangle className="h-4 w-4 mr-2" />
-              Under Review
+              In Review
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -389,10 +424,10 @@ export default function KYCManagement() {
               disabled={loading}
             >
               <option value="all">All Statuses</option>
-              <option value="pending">Pending</option>
-              <option value="under_review">Under Review</option>
-              <option value="approved">Approved</option>
-              <option value="rejected">Rejected</option>
+              <option value="Pending">Pending</option>
+              <option value="In Review">In Review</option>
+              <option value="Verified">Verified</option>
+              <option value="Rejected">Rejected</option>
             </select>
           </div>
         </CardContent>
@@ -430,12 +465,12 @@ export default function KYCManagement() {
                       </div>
                     </td>
                     <td className="py-3 px-4">
-                      <code className="text-sm bg-muted px-2 py-1 rounded">{item.id.slice(0, 8)}...</code>
+                      <code className="text-xs bg-muted px-2 py-1 rounded font-mono break-all">{item.id}</code>
                     </td>
                     <td className="py-3 px-4">
                       <Badge className={`${getStatusColor(item.status)} flex items-center gap-1 w-fit`}>
                         {getStatusIcon(item.status)}
-                        {item.status.replace('_', ' ')}
+                        {getStatusDisplayText(item.status)}
                       </Badge>
                     </td>
                     <td className="py-3 px-4">
@@ -469,7 +504,7 @@ export default function KYCManagement() {
                         </Button>
 
                         {/* Status Update Actions */}
-                        {(item.status === 'pending' || item.status === 'under_review') && (
+                        {(item.status.toLowerCase() === 'pending' || item.status.toLowerCase() === 'in review') && (
                           <>
                             <Button 
                               size="sm" 
@@ -529,7 +564,7 @@ export default function KYCManagement() {
                   <label className="text-sm font-medium">Status</label>
                   <div className="mt-1">
                     <Badge className={getStatusColor(selectedKyc.status)}>
-                      {selectedKyc.status.replace('_', ' ')}
+                      {getStatusDisplayText(selectedKyc.status)}
                     </Badge>
                   </div>
                 </div>
@@ -596,7 +631,7 @@ export default function KYCManagement() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {reviewAction === 'approve' ? 'Approve' : 'Reject'} KYC Application
+              {reviewAction === 'approve' ? 'Verify' : 'Reject'} KYC Application
             </DialogTitle>
           </DialogHeader>
           {selectedKyc && (
@@ -642,7 +677,7 @@ export default function KYCManagement() {
                   disabled={reviewAction === 'reject' && !rejectionReason.trim()}
                   className={reviewAction === 'approve' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}
                 >
-                  {reviewAction === 'approve' ? 'Approve' : 'Reject'}
+                  {reviewAction === 'approve' ? 'Verify' : 'Reject'}
                 </Button>
               </div>
             </div>

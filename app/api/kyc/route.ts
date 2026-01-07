@@ -1,65 +1,19 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { sql } from 'drizzle-orm';
-import { sumsubService } from '@/lib/sumsub/service';
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
-    
-    console.log('Fetching KYC data with status filter:', status);
+    const statsOnly = searchParams.get('stats_only') === 'true';
+
+    console.log('Fetching KYC data with status filter:', status, 'stats only:', statsOnly);
 
     // Get available statuses from kyc_statuses table
     const availableStatuses = await db.execute(sql`
       SELECT * FROM kyc_statuses ORDER BY id
     `);
-
-    // Get data from kyc_verification with proper joins and Sumsub data
-    let kycQuery = sql`
-      SELECT 
-        kv.*,
-        u.name as user_name,
-        u.email as user_email,
-        ks.name as status_name,
-        ks.description as status_description,
-        a.name as reviewer_name,
-        a.email as reviewer_email
-      FROM kyc_verification kv
-      LEFT JOIN users u ON kv.user_id = u.id
-      LEFT JOIN kyc_statuses ks ON kv.kyc_status_id = ks.id
-      LEFT JOIN admin a ON kv.reviewer_id = a.id
-    `;
-
-    // Add status filter if provided
-    if (status && status !== 'all') {
-      // Try to find the status ID from the lookup table
-      const statusRecord = availableStatuses.find((s: any) => 
-        s.name.toLowerCase() === status.toLowerCase()
-      );
-      
-      if (statusRecord) {
-        kycQuery = sql`
-          SELECT 
-            kv.*,
-            u.name as user_name,
-            u.email as user_email,
-            ks.name as status_name,
-            ks.description as status_description,
-            a.name as reviewer_name,
-            a.email as reviewer_email
-          FROM kyc_verification kv
-          LEFT JOIN users u ON kv.user_id = u.id
-          LEFT JOIN kyc_statuses ks ON kv.kyc_status_id = ks.id
-          LEFT JOIN admin a ON kv.reviewer_id = a.id
-          WHERE kv.kyc_status_id = ${statusRecord.id}
-        `;
-      }
-    }
-
-    kycQuery = sql`${kycQuery} ORDER BY kv.created_at DESC LIMIT 100`;
-
-    const kycData = await db.execute(kycQuery);
 
     // Get statistics using kyc_status_id and kyc_statuses lookup table
     const statsQuery = await db.execute(sql`
@@ -89,23 +43,77 @@ export async function GET(request: Request) {
     statsQuery.forEach((stat: any) => {
       const statusName = stat.status_name?.toLowerCase();
       const count = Number(stat.count || 0);
-      
+
       if (statusName === 'total') {
         stats.total = count;
       } else if (statusName === 'pending') {
         stats.pending = count;
-      } else if (statusName === 'approved') {
+      } else if (statusName === 'verified') {  // Changed from 'approved' to 'verified'
         stats.approved = count;
       } else if (statusName === 'rejected') {
         stats.rejected = count;
-      } else if (statusName === 'under_review' || statusName === 'under review') {
+      } else if (statusName === 'in review') {  // Changed from 'under_review' to 'in review'
         stats.underReview = count;
       }
     });
 
+    // If only stats are requested, return early
+    if (statsOnly) {
+      return NextResponse.json({
+        success: true,
+        stats,
+      });
+    }
+
+    // Get data from kyc_verification with proper joins and Sumsub data
+    let kycQuery = sql`
+      SELECT 
+        kv.*,
+        u.name as user_name,
+        u.email as user_email,
+        ks.name as status_name,
+        ks.description as status_description,
+        a.name as reviewer_name,
+        a.email as reviewer_email
+      FROM kyc_verification kv
+      LEFT JOIN users u ON kv.user_id = u.id
+      LEFT JOIN kyc_statuses ks ON kv.kyc_status_id = ks.id
+      LEFT JOIN admin a ON kv.reviewer_id = a.id
+    `;
+
+    // Add status filter if provided
+    if (status && status !== 'all') {
+      // Try to find the status ID from the lookup table
+      const statusRecord = availableStatuses.find((s: any) =>
+        s.name.toLowerCase() === status.toLowerCase()
+      );
+
+      if (statusRecord) {
+        kycQuery = sql`
+          SELECT 
+            kv.*,
+            u.name as user_name,
+            u.email as user_email,
+            ks.name as status_name,
+            ks.description as status_description,
+            a.name as reviewer_name,
+            a.email as reviewer_email
+          FROM kyc_verification kv
+          LEFT JOIN users u ON kv.user_id = u.id
+          LEFT JOIN kyc_statuses ks ON kv.kyc_status_id = ks.id
+          LEFT JOIN admin a ON kv.reviewer_id = a.id
+          WHERE kv.kyc_status_id = ${statusRecord.id}
+        `;
+      }
+    }
+
+    kycQuery = sql`${kycQuery} ORDER BY kv.created_at DESC LIMIT 100`;
+
+    const kycData = await db.execute(kycQuery);
+
     // Transform data for frontend
     const transformedData = kycData.map((item: any) => {
-      
+
       return {
         id: item.id,
         userId: item.user_id || item.userId,
@@ -149,7 +157,7 @@ export async function GET(request: Request) {
 
   } catch (error) {
     console.error('KYC API Error:', error);
-    
+
     return NextResponse.json({
       success: false,
       error: 'Failed to fetch KYC data',
@@ -224,7 +232,7 @@ export async function POST(request: Request) {
     if (action === 'create') {
       // Create new KYC verification
       const { userId, documents, riskLevel } = await request.json();
-      
+
       if (!userId) {
         return NextResponse.json(
           { error: 'User ID is required' },
