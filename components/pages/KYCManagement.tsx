@@ -17,7 +17,8 @@ import {
   Users,
   Calendar,
   RefreshCw,
-  Database
+  Database,
+  FileText
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
@@ -33,7 +34,7 @@ interface KYCData {
   submittedAt: string;
   reviewedAt: string | null;
   documents: any;
-  riskLevel: string;
+
   notes: string | null;
   rejectionReason?: string | null;
   reviewer?: {
@@ -51,6 +52,18 @@ interface KYCStats {
   approved: number;
   rejected: number;
   underReview: number;
+}
+
+interface KYCImage {
+  id: string;
+  url: string;
+  path: string;
+  documentType: string;
+  fileName: string;
+  fileSize: number;
+  fileType: string;
+  uploadedAt: string;
+  bucketName: string;
 }
 
 interface PaginationInfo {
@@ -83,6 +96,21 @@ async function fetchKYCStats() {
     throw new Error('Failed to fetch KYC stats');
   }
   return response.json();
+}
+
+// Fetch KYC images for a specific record
+async function fetchKYCImages(kycId: string, userId: string): Promise<KYCImage[]> {
+  try {
+    const response = await fetch(`/api/kyc/${kycId}/images?userId=${userId}`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch KYC images');
+    }
+    const result = await response.json();
+    return result.success ? result.images : [];
+  } catch (error) {
+    console.error('Error fetching KYC images:', error);
+    return [];
+  }
 }
 
 const getStatusColor = (status: string) => {
@@ -122,14 +150,7 @@ const getStatusDisplayText = (status: string) => {
   }
 };
 
-const getRiskLevelColor = (riskLevel: string) => {
-  switch (riskLevel) {
-    case 'high': return 'bg-red-100 text-red-800';
-    case 'medium': return 'bg-yellow-100 text-yellow-800';
-    case 'low': return 'bg-green-100 text-green-800';
-    default: return 'bg-gray-100 text-gray-800';
-  }
-};
+
 
 export default function KYCManagement() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -155,6 +176,8 @@ export default function KYCManagement() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedKyc, setSelectedKyc] = useState<KYCData | null>(null);
+  const [selectedKycImages, setSelectedKycImages] = useState<KYCImage[]>([]);
+  const [loadingImages, setLoadingImages] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
 
   // Load KYC data from database
@@ -194,7 +217,6 @@ export default function KYCManagement() {
         submittedAt: record.submittedAt,
         reviewedAt: record.reviewedAt,
         documents: record.documents || [],
-        riskLevel: record.riskLevel || 'low',
         notes: record.notes,
         rejectionReason: record.rejectionReason,
         reviewer: record.reviewer,
@@ -250,9 +272,21 @@ export default function KYCManagement() {
   };
 
   // View KYC details
-  const viewKycDetails = (kyc: KYCData) => {
+  const viewKycDetails = async (kyc: KYCData) => {
     setSelectedKyc(kyc);
     setShowDetailsModal(true);
+    setLoadingImages(true);
+    setSelectedKycImages([]);
+    
+    try {
+      const images = await fetchKYCImages(kyc.id, kyc.userId);
+      setSelectedKycImages(images);
+    } catch (error) {
+      console.error('Failed to load KYC images:', error);
+      toast.error('Failed to load KYC images');
+    } finally {
+      setLoadingImages(false);
+    }
   };
 
   // Filter data based on search term
@@ -438,7 +472,6 @@ export default function KYCManagement() {
                   <th className="text-left py-3 px-4 font-medium">User</th>
                   <th className="text-left py-3 px-4 font-medium">KYC ID</th>
                   <th className="text-left py-3 px-4 font-medium">Status</th>
-                  <th className="text-left py-3 px-4 font-medium">Risk Level</th>
                   <th className="text-left py-3 px-4 font-medium">Submitted</th>
                   <th className="text-left py-3 px-4 font-medium">Actions</th>
                 </tr>
@@ -459,11 +492,6 @@ export default function KYCManagement() {
                       <Badge className={`${getStatusColor(item.status)} flex items-center gap-1 w-fit`}>
                         {getStatusIcon(item.status)}
                         {getStatusDisplayText(item.status)}
-                      </Badge>
-                    </td>
-                    <td className="py-3 px-4">
-                      <Badge className={getRiskLevelColor(item.riskLevel)}>
-                        {item.riskLevel.toUpperCase()}
                       </Badge>
                     </td>
                     <td className="py-3 px-4">
@@ -567,7 +595,7 @@ export default function KYCManagement() {
 
       {/* KYC Details Modal */}
       <Dialog open={showDetailsModal} onOpenChange={setShowDetailsModal}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>KYC Details</DialogTitle>
           </DialogHeader>
@@ -588,14 +616,6 @@ export default function KYCManagement() {
                   </div>
                 </div>
                 <div>
-                  <label className="text-sm font-medium">Risk Level</label>
-                  <div className="mt-1">
-                    <Badge className={getRiskLevelColor(selectedKyc.riskLevel)}>
-                      {selectedKyc.riskLevel.toUpperCase()}
-                    </Badge>
-                  </div>
-                </div>
-                <div>
                   <label className="text-sm font-medium">Submitted</label>
                   <p className="text-sm text-muted-foreground">
                     {new Date(selectedKyc.submittedAt).toLocaleString()}
@@ -603,16 +623,72 @@ export default function KYCManagement() {
                 </div>
               </div>
 
-              {selectedKyc.documents && (
-                <div>
-                  <label className="text-sm font-medium">Documents</label>
-                  <div className="mt-1">
-                    <pre className="text-sm bg-muted p-2 rounded overflow-auto">
-                      {JSON.stringify(selectedKyc.documents, null, 2)}
-                    </pre>
-                  </div>
+              {/* KYC Images Section */}
+              <div>
+                <label className="text-sm font-medium">Uploaded Documents</label>
+                <div className="mt-2">
+                  {loadingImages ? (
+                    <div className="flex items-center justify-center py-8">
+                      <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+                      <span className="ml-2 text-sm text-muted-foreground">Loading images...</span>
+                    </div>
+                  ) : selectedKycImages.length > 0 ? (
+                    <div className="grid grid-cols-2 gap-4">
+                      {selectedKycImages.map((image) => (
+                        <div key={image.id} className="border rounded-lg p-3 space-y-2">
+                          <div className="aspect-video bg-muted rounded-md overflow-hidden">
+                            {image.fileType.startsWith('image/') ? (
+                              <img
+                                src={image.url}
+                                alt={`${image.documentType} document`}
+                                className="w-full h-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                                onClick={() => window.open(image.url, '_blank')}
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <div className="text-center">
+                                  <FileText className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                                  <p className="text-xs text-muted-foreground">PDF Document</p>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="mt-2"
+                                    onClick={() => window.open(image.url, '_blank')}
+                                  >
+                                    View PDF
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <Badge variant="secondary" className="text-xs">
+                                {image.documentType.replace('_', ' ').toUpperCase()}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {(image.fileSize / 1024).toFixed(1)} KB
+                              </span>
+                            </div>
+                            <p className="text-xs text-muted-foreground truncate" title={image.fileName}>
+                              {image.fileName}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Uploaded: {new Date(image.uploadedAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p>No documents uploaded</p>
+                      <p className="text-sm">Documents will appear here once uploaded</p>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
 
               {selectedKyc.notes && (
                 <div>
