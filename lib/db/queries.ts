@@ -754,14 +754,23 @@ export const kycVerificationQueries = {
           name: adminAccounts.name,
           email: adminAccounts.email,
         },
+        status: {
+          id: kycStatuses.id,
+          name: kycStatuses.name,
+          description: kycStatuses.description,
+        },
       })
       .from(kycVerification)
       .leftJoin(users, eq(kycVerification.userId, users.id))
-      .leftJoin(adminAccounts, eq(kycVerification.reviewerId, adminAccounts.id));
+      .leftJoin(adminAccounts, eq(kycVerification.reviewerId, adminAccounts.id))
+      .leftJoin(kycStatuses, eq(kycVerification.kycStatusId, kycStatuses.id));
 
     if (filters) {
       const conditions = [];
-      if (filters.status) conditions.push(eq(kycVerification.status, filters.status as any));
+      if (filters.status) {
+        // Join with kyc_statuses to filter by status name
+        conditions.push(eq(kycStatuses.name, filters.status));
+      }
       if (filters.riskLevel) conditions.push(eq(kycVerification.riskLevel, filters.riskLevel as any));
       if (filters.userId) conditions.push(eq(kycVerification.userId, filters.userId));
       
@@ -788,10 +797,16 @@ export const kycVerificationQueries = {
           name: adminAccounts.name,
           email: adminAccounts.email,
         },
+        status: {
+          id: kycStatuses.id,
+          name: kycStatuses.name,
+          description: kycStatuses.description,
+        },
       })
       .from(kycVerification)
       .leftJoin(users, eq(kycVerification.userId, users.id))
       .leftJoin(adminAccounts, eq(kycVerification.reviewerId, adminAccounts.id))
+      .leftJoin(kycStatuses, eq(kycVerification.kycStatusId, kycStatuses.id))
       .where(eq(kycVerification.id, id))
       .limit(1);
     return result[0] || null;
@@ -823,9 +838,9 @@ export const kycVerificationQueries = {
     return result[0];
   },
 
-  updateStatus: async (id: string, status: string, reviewerId?: number, notes?: string, rejectionReason?: string) => {
+  updateStatus: async (id: string, statusId: number, reviewerId?: number, notes?: string, rejectionReason?: string) => {
     const updateData: any = {
-      status,
+      kycStatusId: statusId,
       reviewedAt: new Date(),
       updatedAt: new Date(),
     };
@@ -843,31 +858,43 @@ export const kycVerificationQueries = {
   },
 
   getStats: async () => {
-    const [totalResult] = await db.select({ count: count() }).from(kycVerification);
-    const [pendingResult] = await db
-      .select({ count: count() })
+    // Get stats by joining with kyc_statuses table
+    const statsResult = await db
+      .select({
+        statusName: kycStatuses.name,
+        count: count(),
+      })
       .from(kycVerification)
-      .where(eq(kycVerification.status, 'pending'));
-    const [approvedResult] = await db
-      .select({ count: count() })
-      .from(kycVerification)
-      .where(eq(kycVerification.status, 'approved'));
-    const [rejectedResult] = await db
-      .select({ count: count() })
-      .from(kycVerification)
-      .where(eq(kycVerification.status, 'rejected'));
-    const [underReviewResult] = await db
-      .select({ count: count() })
-      .from(kycVerification)
-      .where(eq(kycVerification.status, 'under_review'));
+      .rightJoin(kycStatuses, eq(kycVerification.kycStatusId, kycStatuses.id))
+      .groupBy(kycStatuses.name);
 
-    return {
+    const [totalResult] = await db.select({ count: count() }).from(kycVerification);
+
+    // Transform to expected format
+    const stats = {
       total: totalResult.count,
-      pending: pendingResult.count,
-      approved: approvedResult.count,
-      rejected: rejectedResult.count,
-      underReview: underReviewResult.count,
+      pending: 0,
+      approved: 0,
+      rejected: 0,
+      underReview: 0,
     };
+
+    statsResult.forEach((stat) => {
+      const statusName = stat.statusName?.toLowerCase();
+      const count = Number(stat.count || 0);
+      
+      if (statusName === 'pending') {
+        stats.pending = count;
+      } else if (statusName === 'approved') {
+        stats.approved = count;
+      } else if (statusName === 'rejected') {
+        stats.rejected = count;
+      } else if (statusName === 'under_review' || statusName === 'under review') {
+        stats.underReview = count;
+      }
+    });
+
+    return stats;
   },
 
   delete: async (id: string) => {

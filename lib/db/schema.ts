@@ -276,7 +276,7 @@ export const kycStatuses = pgTable('kyc_statuses', {
 export const kycVerification = pgTable('kyc_verification', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  status: varchar('status', { length: 50 }).notNull().default('pending'),
+  kycStatusId: integer('kyc_status_id').references(() => kycStatuses.id, { onDelete: 'set null' }),
   riskLevel: varchar('risk_level', { length: 20 }).default('low'),
   submittedAt: timestamp('submitted_at').notNull().defaultNow(),
   reviewedAt: timestamp('reviewed_at'),
