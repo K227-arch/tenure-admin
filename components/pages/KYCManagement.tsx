@@ -22,7 +22,6 @@ import {
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
 
 // KYC Data interface
 interface KYCData {
@@ -73,28 +72,6 @@ async function fetchKYCStats() {
   const response = await fetch('/api/kyc?stats_only=true');
   if (!response.ok) {
     throw new Error('Failed to fetch KYC stats');
-  }
-  return response.json();
-}
-
-// Update KYC status
-async function updateKYCStatus(kycId: string, status: string, notes?: string, rejectionReason?: string) {
-  const response = await fetch(`/api/kyc`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      action: 'update_status',
-      kycId,
-      status,
-      notes,
-      rejectionReason,
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error('Failed to update KYC status');
   }
   return response.json();
 }
@@ -160,10 +137,6 @@ export default function KYCManagement() {
   const [error, setError] = useState<string | null>(null);
   const [selectedKyc, setSelectedKyc] = useState<KYCData | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
-  const [showReviewModal, setShowReviewModal] = useState(false);
-  const [reviewAction, setReviewAction] = useState<'approve' | 'reject' | null>(null);
-  const [reviewNotes, setReviewNotes] = useState('');
-  const [rejectionReason, setRejectionReason] = useState('');
 
   // Load KYC data from database
   const loadKYCData = async () => {
@@ -223,42 +196,6 @@ export default function KYCManagement() {
   useEffect(() => {
     loadKYCData();
   }, [statusFilter]);
-
-  // Handle status update
-  const handleStatusUpdate = async (kycId: string, newStatus: string, notes?: string, rejectionReason?: string) => {
-    try {
-      await updateKYCStatus(kycId, newStatus, notes, rejectionReason);
-      toast.success(`KYC status updated to ${newStatus}`);
-      loadKYCData(); // Reload data
-      setShowReviewModal(false);
-      setReviewNotes('');
-      setRejectionReason('');
-    } catch (err) {
-      toast.error('Failed to update KYC status');
-    }
-  };
-
-  // Open review modal
-  const openReviewModal = (kyc: KYCData, action: 'approve' | 'reject') => {
-    setSelectedKyc(kyc);
-    setReviewAction(action);
-    setShowReviewModal(true);
-    setReviewNotes('');
-    setRejectionReason('');
-  };
-
-  // Submit review
-  const submitReview = () => {
-    if (!selectedKyc || !reviewAction) return;
-    
-    const status = reviewAction === 'approve' ? 'Verified' : 'Rejected';  // Use database status names
-    handleStatusUpdate(
-      selectedKyc.id, 
-      status, 
-      reviewNotes, 
-      reviewAction === 'reject' ? rejectionReason : undefined
-    );
-  };
 
   // View KYC details
   const viewKycDetails = (kyc: KYCData) => {
@@ -451,7 +388,6 @@ export default function KYCManagement() {
                   <th className="text-left py-3 px-4 font-medium">Status</th>
                   <th className="text-left py-3 px-4 font-medium">Risk Level</th>
                   <th className="text-left py-3 px-4 font-medium">Submitted</th>
-                  <th className="text-left py-3 px-4 font-medium">Reviewed</th>
                   <th className="text-left py-3 px-4 font-medium">Actions</th>
                 </tr>
               </thead>
@@ -485,15 +421,6 @@ export default function KYCManagement() {
                       </div>
                     </td>
                     <td className="py-3 px-4">
-                      {item.reviewedAt ? (
-                        <div className="text-sm text-muted-foreground">
-                          {new Date(item.reviewedAt).toLocaleDateString()}
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </td>
-                    <td className="py-3 px-4">
                       <div className="flex gap-2">
                         <Button 
                           size="sm" 
@@ -502,30 +429,6 @@ export default function KYCManagement() {
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
-
-                        {/* Status Update Actions */}
-                        {(item.status.toLowerCase() === 'pending' || item.status.toLowerCase() === 'in review') && (
-                          <>
-                            <Button 
-                              size="sm" 
-                              variant="outline" 
-                              className="text-green-600 hover:text-green-700"
-                              onClick={() => openReviewModal(item, 'approve')}
-                              disabled={loading}
-                            >
-                              <CheckCircle className="h-4 w-4" />
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="outline" 
-                              className="text-red-600 hover:text-red-700"
-                              onClick={() => openReviewModal(item, 'reject')}
-                              disabled={loading}
-                            >
-                              <XCircle className="h-4 w-4" />
-                            </Button>
-                          </>
-                        )}
                       </div>
                     </td>
                   </tr>
@@ -621,65 +524,6 @@ export default function KYCManagement() {
                   </p>
                 </div>
               )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Review Modal */}
-      <Dialog open={showReviewModal} onOpenChange={setShowReviewModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {reviewAction === 'approve' ? 'Verify' : 'Reject'} KYC Application
-            </DialogTitle>
-          </DialogHeader>
-          {selectedKyc && (
-            <div className="space-y-4">
-              <div>
-                <p className="text-sm text-muted-foreground">
-                  User: {selectedKyc.userName} ({selectedKyc.email})
-                </p>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium">Review Notes</label>
-                <Textarea
-                  value={reviewNotes}
-                  onChange={(e) => setReviewNotes(e.target.value)}
-                  placeholder="Add any notes about this review..."
-                  className="mt-1"
-                />
-              </div>
-
-              {reviewAction === 'reject' && (
-                <div>
-                  <label className="text-sm font-medium">Rejection Reason *</label>
-                  <Textarea
-                    value={rejectionReason}
-                    onChange={(e) => setRejectionReason(e.target.value)}
-                    placeholder="Please provide a reason for rejection..."
-                    className="mt-1"
-                    required
-                  />
-                </div>
-              )}
-
-              <div className="flex justify-end gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowReviewModal(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={submitReview}
-                  disabled={reviewAction === 'reject' && !rejectionReason.trim()}
-                  className={reviewAction === 'approve' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}
-                >
-                  {reviewAction === 'approve' ? 'Verify' : 'Reject'}
-                </Button>
-              </div>
             </div>
           )}
         </DialogContent>
