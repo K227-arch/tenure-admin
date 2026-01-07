@@ -7,8 +7,11 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
     const statsOnly = searchParams.get('stats_only') === 'true';
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
+    const offset = (page - 1) * limit;
 
-    console.log('Fetching KYC data with status filter:', status, 'stats only:', statsOnly);
+    console.log('Fetching KYC data with:', { status, statsOnly, page, limit, offset });
 
     // Get available statuses from kyc_statuses table
     const availableStatuses = await db.execute(sql`
@@ -65,7 +68,7 @@ export async function GET(request: Request) {
       });
     }
 
-    // Get data from kyc_verification with proper joins and Sumsub data
+    // Build the base query for KYC data with pagination
     let kycQuery = sql`
       SELECT 
         kv.*,
@@ -107,13 +110,33 @@ export async function GET(request: Request) {
       }
     }
 
-    kycQuery = sql`${kycQuery} ORDER BY kv.created_at DESC LIMIT 100`;
+    // Add pagination
+    kycQuery = sql`${kycQuery} ORDER BY kv.created_at DESC LIMIT ${limit} OFFSET ${offset}`;
 
     const kycData = await db.execute(kycQuery);
 
+    // Get total count for pagination (filtered)
+    let countQuery = sql`SELECT COUNT(*) as total FROM kyc_verification kv`;
+
+    if (status && status !== 'all') {
+      const statusRecord = availableStatuses.find((s: any) =>
+        s.name.toLowerCase() === status.toLowerCase()
+      );
+      if (statusRecord) {
+        countQuery = sql`
+          SELECT COUNT(*) as total 
+          FROM kyc_verification kv 
+          WHERE kv.kyc_status_id = ${statusRecord.id}
+        `;
+      }
+    }
+
+    const totalCountResult = await db.execute(countQuery);
+    const totalRecords = Number(totalCountResult[0]?.total || 0);
+    const totalPages = Math.ceil(totalRecords / limit);
+
     // Transform data for frontend
     const transformedData = kycData.map((item: any) => {
-
       return {
         id: item.id,
         userId: item.user_id || item.userId,
@@ -148,10 +171,12 @@ export async function GET(request: Request) {
       data: transformedData,
       stats,
       pagination: {
-        total: stats.total,
-        page: 1,
-        limit: 100,
-        totalPages: Math.ceil(stats.total / 100)
+        page,
+        limit,
+        total: totalRecords,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
       }
     });
 

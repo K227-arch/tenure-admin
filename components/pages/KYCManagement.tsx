@@ -53,12 +53,21 @@ interface KYCStats {
   underReview: number;
 }
 
+interface PaginationInfo {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+}
+
 // Fetch KYC data from database only
-async function fetchKYCData(filters?: { status?: string; limit?: number; offset?: number }) {
+async function fetchKYCData(filters?: { status?: string; page?: number; limit?: number }) {
   const params = new URLSearchParams();
   if (filters?.status && filters.status !== 'all') params.append('status', filters.status);
+  if (filters?.page) params.append('page', filters.page.toString());
   if (filters?.limit) params.append('limit', filters.limit.toString());
-  if (filters?.offset) params.append('offset', filters.offset.toString());
 
   const response = await fetch(`/api/kyc?${params.toString()}`);
   if (!response.ok) {
@@ -125,7 +134,17 @@ const getRiskLevelColor = (riskLevel: string) => {
 export default function KYCManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [kycData, setKycData] = useState<KYCData[]>([]);
+  const [pagination, setPagination] = useState<PaginationInfo>({
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 0,
+    hasNextPage: false,
+    hasPreviousPage: false,
+  });
   const [stats, setStats] = useState<KYCStats>({
     total: 0,
     pending: 0,
@@ -146,13 +165,21 @@ export default function KYCManagement() {
       
       // Fetch both data and real-time stats
       const [dataResponse, statsResponse] = await Promise.all([
-        fetchKYCData({ status: statusFilter }),
+        fetchKYCData({ status: statusFilter, page: currentPage, limit: pageSize }),
         fetchKYCStats()
       ]);
       
       if (!dataResponse.success) {
         setError(dataResponse.error || 'Failed to load KYC data');
         setKycData([]);
+        setPagination({
+          page: 1,
+          limit: pageSize,
+          total: 0,
+          totalPages: 0,
+          hasNextPage: false,
+          hasPreviousPage: false,
+        });
         setStats({ total: 0, pending: 0, approved: 0, rejected: 0, underReview: 0 });
         return;
       }
@@ -176,6 +203,14 @@ export default function KYCManagement() {
       }));
       
       setKycData(transformedData);
+      setPagination(dataResponse.pagination || {
+        page: 1,
+        limit: pageSize,
+        total: 0,
+        totalPages: 0,
+        hasNextPage: false,
+        hasPreviousPage: false,
+      });
       
       // Use real-time stats from the dedicated stats endpoint
       if (statsResponse.success) {
@@ -192,10 +227,27 @@ export default function KYCManagement() {
     }
   };
 
-  // Load data on component mount and when status filter changes
+  // Load data on component mount and when filters change
   useEffect(() => {
     loadKYCData();
+  }, [statusFilter, currentPage, pageSize]);
+
+  // Reset to first page when status filter changes
+  useEffect(() => {
+    if (currentPage !== 1) {
+      setCurrentPage(1);
+    }
   }, [statusFilter]);
+
+  // Pagination handlers
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
+  };
+
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPageSize(newPageSize);
+    setCurrentPage(1); // Reset to first page when changing page size
+  };
 
   // View KYC details
   const viewKycDetails = (kyc: KYCData) => {
@@ -446,6 +498,70 @@ export default function KYCManagement() {
               </div>
             )}
           </div>
+
+          {/* Pagination Controls */}
+          {pagination.totalPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                  Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} results
+                </span>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <select
+                  value={pageSize}
+                  onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+                  className="px-2 py-1 border border-input bg-background rounded text-sm"
+                >
+                  <option value={5}>5 per page</option>
+                  <option value={10}>10 per page</option>
+                  <option value={20}>20 per page</option>
+                  <option value={50}>50 per page</option>
+                </select>
+                
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(1)}
+                    disabled={!pagination.hasPreviousPage}
+                  >
+                    First
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(pagination.page - 1)}
+                    disabled={!pagination.hasPreviousPage}
+                  >
+                    Previous
+                  </Button>
+                  
+                  <span className="px-3 py-1 text-sm">
+                    Page {pagination.page} of {pagination.totalPages}
+                  </span>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(pagination.page + 1)}
+                    disabled={!pagination.hasNextPage}
+                  >
+                    Next
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(pagination.totalPages)}
+                    disabled={!pagination.hasNextPage}
+                  >
+                    Last
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
