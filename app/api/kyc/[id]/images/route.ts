@@ -35,9 +35,9 @@ export async function GET(
 
     const verificationData = kycRecord[0].verification_data as any || {};
     const documents = verificationData.documents || [];
-
-    // Get signed URLs for each document stored in the database
     const images = [];
+
+    // Method 1: Get images from verification_data.documents (for manually uploaded files)
     for (const doc of documents) {
       if (doc.filePath && doc.bucketName === 'kyc-images') {
         // Get signed URL from S3
@@ -58,6 +58,46 @@ export async function GET(
             });
           }
         }
+      }
+    }
+
+    // Method 2: For Sumsub records, check storage directly using inspection ID
+    if (images.length === 0 && verificationData.inspectionId) {
+      console.log('No documents in verification_data, checking Sumsub storage...');
+      
+      // Use inspection ID as the folder name for Sumsub records
+      const result = await listKycImages(userId, verificationData.inspectionId);
+      if (result.success && result.images) {
+        // Map storage files to our image format
+        result.images.forEach((storageImage, index) => {
+          // Extract document type from filename or default to 'document'
+          let documentType = 'document';
+          const fileName = storageImage.fileName || storageImage.path.split('/').pop() || 'unknown';
+          
+          if (fileName.toLowerCase().includes('front') || fileName.toLowerCase().includes('id')) {
+            documentType = 'id_front';
+          } else if (fileName.toLowerCase().includes('back')) {
+            documentType = 'id_back';
+          } else if (fileName.toLowerCase().includes('selfie')) {
+            documentType = 'selfie';
+          } else if (fileName.toLowerCase().includes('passport')) {
+            documentType = 'passport';
+          } else if (fileName.toLowerCase().includes('driver')) {
+            documentType = 'drivers_license';
+          }
+
+          images.push({
+            id: `${kycId}-${documentType}-${index}`,
+            url: storageImage.url,
+            path: storageImage.path,
+            documentType: documentType,
+            fileName: fileName,
+            fileSize: storageImage.fileSize || 0,
+            fileType: storageImage.fileType || 'image/jpeg',
+            uploadedAt: storageImage.uploadedAt || kycRecord[0].created_at,
+            bucketName: 'kyc-images',
+          });
+        });
       }
     }
 
