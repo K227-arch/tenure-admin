@@ -262,8 +262,6 @@ export const newsfeedPosts = pgTable('newsfeedposts', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
-<<<<<<< HEAD
-=======
 // KYC Statuses Table
 export const kycStatuses = pgTable('kyc_statuses', {
   id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
@@ -298,7 +296,6 @@ export const kycVerification = pgTable('kyc_verification', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
->>>>>>> fad5c8f9b0978a5a039489e091485788aa0fc598
 // Export types
 export type AdminAccount = typeof adminAccounts.$inferSelect;
 export type NewAdminAccount = typeof adminAccounts.$inferInsert;
@@ -332,3 +329,7 @@ export type UserAddress = typeof userAddresses.$inferSelect;
 export type NewUserAddress = typeof userAddresses.$inferInsert;
 export type NewsfeedPost = typeof newsfeedPosts.$inferSelect;
 export type NewNewsfeedPost = typeof newsfeedPosts.$inferInsert;
+export type KycStatus = typeof kycStatuses.$inferSelect;
+export type NewKycStatus = typeof kycStatuses.$inferInsert;
+export type KycVerification = typeof kycVerification.$inferSelect;
+export type NewKycVerification = typeof kycVerification.$inferInsert;
