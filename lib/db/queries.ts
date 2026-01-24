@@ -710,8 +710,6 @@ export const newsfeedPostQueries = {
     };
   },
 };
-<<<<<<< HEAD
-=======
 
 // KYC Status Queries
 export const kycStatusQueries = {
@@ -899,4 +897,3 @@ export const kycVerificationQueries = {
     await db.delete(kycVerification).where(eq(kycVerification.id, id));
   },
 };
->>>>>>> fad5c8f9b0978a5a039489e091485788aa0fc598
