@@ -710,3 +710,193 @@ export const newsfeedPostQueries = {
     };
   },
 };
+<<<<<<< HEAD
+=======
+
+// KYC Status Queries
+export const kycStatusQueries = {
+  getAll: async () => {
+    return await db.select().from(kycStatuses).orderBy(kycStatuses.name);
+  },
+
+  findById: async (id: number) => {
+    const result = await db.select().from(kycStatuses).where(eq(kycStatuses.id, id)).limit(1);
+    return result[0] || null;
+  },
+
+  create: async (data: NewKycStatus) => {
+    const result = await db.insert(kycStatuses).values(data).returning();
+    return result[0];
+  },
+};
+
+// KYC Verification Queries
+export const kycVerificationQueries = {
+  getAll: async (limit = 100, offset = 0, filters?: {
+    status?: string;
+    riskLevel?: string;
+    userId?: string;
+    search?: string;
+  }) => {
+    let query = db
+      .select({
+        kyc: kycVerification,
+        user: {
+          id: users.id,
+          email: users.email,
+          name: users.name,
+          createdAt: users.createdAt,
+        },
+        reviewer: {
+          id: adminAccounts.id,
+          name: adminAccounts.name,
+          email: adminAccounts.email,
+        },
+        status: {
+          id: kycStatuses.id,
+          name: kycStatuses.name,
+          description: kycStatuses.description,
+        },
+      })
+      .from(kycVerification)
+      .leftJoin(users, eq(kycVerification.userId, users.id))
+      .leftJoin(adminAccounts, eq(kycVerification.reviewerId, adminAccounts.id))
+      .leftJoin(kycStatuses, eq(kycVerification.kycStatusId, kycStatuses.id));
+
+    if (filters) {
+      const conditions = [];
+      if (filters.status) {
+        // Join with kyc_statuses to filter by status name
+        conditions.push(eq(kycStatuses.name, filters.status));
+      }
+      if (filters.riskLevel) conditions.push(eq(kycVerification.riskLevel, filters.riskLevel as any));
+      if (filters.userId) conditions.push(eq(kycVerification.userId, filters.userId));
+      
+      if (conditions.length > 0) {
+        query = query.where(and(...conditions)) as any;
+      }
+    }
+
+    return await query.orderBy(desc(kycVerification.createdAt)).limit(limit).offset(offset);
+  },
+
+  findById: async (id: string) => {
+    const result = await db
+      .select({
+        kyc: kycVerification,
+        user: {
+          id: users.id,
+          email: users.email,
+          name: users.name,
+          createdAt: users.createdAt,
+        },
+        reviewer: {
+          id: adminAccounts.id,
+          name: adminAccounts.name,
+          email: adminAccounts.email,
+        },
+        status: {
+          id: kycStatuses.id,
+          name: kycStatuses.name,
+          description: kycStatuses.description,
+        },
+      })
+      .from(kycVerification)
+      .leftJoin(users, eq(kycVerification.userId, users.id))
+      .leftJoin(adminAccounts, eq(kycVerification.reviewerId, adminAccounts.id))
+      .leftJoin(kycStatuses, eq(kycVerification.kycStatusId, kycStatuses.id))
+      .where(eq(kycVerification.id, id))
+      .limit(1);
+    return result[0] || null;
+  },
+
+  findByUserId: async (userId: string) => {
+    return await db
+      .select()
+      .from(kycVerification)
+      .where(eq(kycVerification.userId, userId))
+      .orderBy(desc(kycVerification.createdAt));
+  },
+
+  create: async (data: NewKycVerification) => {
+    const result = await db.insert(kycVerification).values({
+      ...data,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return result[0];
+  },
+
+  update: async (id: string, data: Partial<NewKycVerification>) => {
+    const result = await db
+      .update(kycVerification)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(kycVerification.id, id))
+      .returning();
+    return result[0];
+  },
+
+  updateStatus: async (id: string, statusId: number, reviewerId?: number, notes?: string, rejectionReason?: string) => {
+    const updateData: any = {
+      kycStatusId: statusId,
+      reviewedAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    if (reviewerId) updateData.reviewerId = reviewerId;
+    if (notes) updateData.notes = notes;
+    if (rejectionReason) updateData.rejectionReason = rejectionReason;
+
+    const result = await db
+      .update(kycVerification)
+      .set(updateData)
+      .where(eq(kycVerification.id, id))
+      .returning();
+    return result[0];
+  },
+
+  getStats: async () => {
+    // Get stats by joining with kyc_statuses table
+    const statsResult = await db
+      .select({
+        statusName: kycStatuses.name,
+        count: count(),
+      })
+      .from(kycVerification)
+      .rightJoin(kycStatuses, eq(kycVerification.kycStatusId, kycStatuses.id))
+      .groupBy(kycStatuses.name);
+
+    const [totalResult] = await db.select({ count: count() }).from(kycVerification);
+
+    // Transform to expected format
+    const stats = {
+      total: totalResult.count,
+      pending: 0,
+      approved: 0,
+      rejected: 0,
+      underReview: 0,
+    };
+
+    statsResult.forEach((stat) => {
+      const statusName = stat.statusName?.toLowerCase();
+      const count = Number(stat.count || 0);
+      
+      if (statusName === 'pending') {
+        stats.pending = count;
+      } else if (statusName === 'approved') {
+        stats.approved = count;
+      } else if (statusName === 'rejected') {
+        stats.rejected = count;
+      } else if (statusName === 'under_review' || statusName === 'under review') {
+        stats.underReview = count;
+      }
+    });
+
+    return stats;
+  },
+
+  delete: async (id: string) => {
+    await db.delete(kycVerification).where(eq(kycVerification.id, id));
+  },
+};
+>>>>>>> fad5c8f9b0978a5a039489e091485788aa0fc598

@@ -262,6 +262,43 @@ export const newsfeedPosts = pgTable('newsfeedposts', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
+<<<<<<< HEAD
+=======
+// KYC Statuses Table
+export const kycStatuses = pgTable('kyc_statuses', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  name: varchar('name', { length: 50 }).notNull().unique(),
+  description: text('description'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+// KYC Verification Table
+export const kycVerification = pgTable('kyc_verification', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  kycStatusId: integer('kyc_status_id').references(() => kycStatuses.id, { onDelete: 'set null' }),
+  riskLevel: varchar('risk_level', { length: 20 }).default('low'),
+  submittedAt: timestamp('submitted_at').notNull().defaultNow(),
+  reviewedAt: timestamp('reviewed_at'),
+  reviewerId: integer('reviewer_id').references(() => adminAccounts.id, { onDelete: 'set null' }),
+  documents: jsonb('documents'), // Array of document types and URLs
+  notes: text('notes'),
+  rejectionReason: text('rejection_reason'),
+  expiresAt: timestamp('expires_at'),
+  metadata: jsonb('metadata'),
+  // Sum & Substance specific fields
+  sumsubApplicantId: varchar('sumsub_applicant_id', { length: 255 }),
+  sumsubInspectionId: varchar('sumsub_inspection_id', { length: 255 }),
+  sumsubExternalUserId: varchar('sumsub_external_user_id', { length: 255 }),
+  sumsubAccessToken: text('sumsub_access_token'),
+  sumsubWebhookData: jsonb('sumsub_webhook_data'),
+  sumsubReviewResult: jsonb('sumsub_review_result'),
+  sumsubScore: decimal('sumsub_score', { precision: 5, scale: 2 }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+>>>>>>> fad5c8f9b0978a5a039489e091485788aa0fc598
 // Export types
 export type AdminAccount = typeof adminAccounts.$inferSelect;
 export type NewAdminAccount = typeof adminAccounts.$inferInsert;

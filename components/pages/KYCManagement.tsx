@@ -15,20 +15,14 @@ import {
   Eye,
   AlertTriangle,
   Users,
-  FileText,
   Calendar,
   RefreshCw,
-  ExternalLink,
-  RotateCcw,
-  Star,
-  Zap,
   Database,
-  Activity,
-  TestTube
+  FileText
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import SumsubCredentialsCheck from "@/components/kyc/SumsubCredentialsCheck";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 // KYC Data interface
 interface KYCData {
@@ -39,23 +33,17 @@ interface KYCData {
   status: string;
   submittedAt: string;
   reviewedAt: string | null;
-  documents: string[];
-  riskLevel: string;
-  notes: string;
-  rejectionReason?: string;
+  documents: any;
+
+  notes: string | null;
+  rejectionReason?: string | null;
   reviewer?: {
     id: number;
     name: string;
     email: string;
   };
-  sumsub?: {
-    applicantId?: string;
-    inspectionId?: string;
-    externalUserId?: string;
-    score?: number;
-    reviewResult?: any;
-    webhookData?: any;
-  };
+  sumsubApplicantId?: string | null;
+  sumsubScore?: number | null;
 }
 
 interface KYCStats {
@@ -66,12 +54,33 @@ interface KYCStats {
   underReview: number;
 }
 
-// Fetch KYC data from API
-async function fetchKYCData(filters?: { status?: string; limit?: number; offset?: number }) {
+interface KYCImage {
+  id: string;
+  url: string;
+  path: string;
+  documentType: string;
+  fileName: string;
+  fileSize: number;
+  fileType: string;
+  uploadedAt: string;
+  bucketName: string;
+}
+
+interface PaginationInfo {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+}
+
+// Fetch KYC data from database only
+async function fetchKYCData(filters?: { status?: string; page?: number; limit?: number }) {
   const params = new URLSearchParams();
   if (filters?.status && filters.status !== 'all') params.append('status', filters.status);
+  if (filters?.page) params.append('page', filters.page.toString());
   if (filters?.limit) params.append('limit', filters.limit.toString());
-  if (filters?.offset) params.append('offset', filters.offset.toString());
 
   const response = await fetch(`/api/kyc?${params.toString()}`);
   if (!response.ok) {
@@ -80,57 +89,64 @@ async function fetchKYCData(filters?: { status?: string; limit?: number; offset?
   return response.json();
 }
 
-// Update KYC status
-async function updateKYCStatus(kycId: string, status: string, notes?: string, rejectionReason?: string) {
-  const response = await fetch('/api/kyc', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      action: 'update_status',
-      kycId,
-      status,
-      notes,
-      rejectionReason,
-      reviewerId: 1, // TODO: Get actual admin ID from session
-    }),
-  });
-
+// Fetch real-time KYC stats from database
+async function fetchKYCStats() {
+  const response = await fetch('/api/kyc?stats_only=true');
   if (!response.ok) {
-    throw new Error('Failed to update KYC status');
+    throw new Error('Failed to fetch KYC stats');
   }
   return response.json();
 }
 
+// Fetch KYC images for a specific record
+async function fetchKYCImages(kycId: string, userId: string): Promise<KYCImage[]> {
+  try {
+    const response = await fetch(`/api/kyc/${kycId}/images?userId=${userId}`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch KYC images');
+    }
+    const result = await response.json();
+    return result.success ? result.images : [];
+  } catch (error) {
+    console.error('Error fetching KYC images:', error);
+    return [];
+  }
+}
+
 const getStatusColor = (status: string) => {
-  switch (status) {
+  const normalizedStatus = status.toLowerCase();
+  switch (normalizedStatus) {
+    case 'verified': 
     case 'approved': return 'bg-green-100 text-green-800 border-green-200';
-    case 'rejected': return 'bg-gray-200 text-gray-700 border-gray-300'; // Loading/gray color
-    case 'pending': return 'bg-gray-100 border-gray-400'; // Will use custom color
+    case 'rejected': return 'bg-red-100 text-red-800 border-red-200';
+    case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+    case 'in review':
     case 'under_review': return 'bg-blue-100 text-blue-800 border-blue-200';
     default: return 'bg-gray-100 text-gray-800 border-gray-200';
   }
 };
 
-const getStatusStyle = (status: string) => {
-  if (status === 'pending') {
-    return {
-      backgroundColor: '#F3F4F6', // Light gray background
-      color: '#9CA3AF', // Your specified color #9CA3AF
-      borderColor: '#9CA3AF'
-    };
-  }
-  return {};
-};
-
 const getStatusIcon = (status: string) => {
-  switch (status) {
+  const normalizedStatus = status.toLowerCase();
+  switch (normalizedStatus) {
+    case 'verified':
     case 'approved': return <CheckCircle className="h-4 w-4" />;
     case 'rejected': return <XCircle className="h-4 w-4" />;
     case 'pending': return <Clock className="h-4 w-4" />;
+    case 'in review':
     case 'under_review': return <AlertTriangle className="h-4 w-4" />;
     default: return <Clock className="h-4 w-4" />;
+  }
+};
+
+const getStatusDisplayText = (status: string) => {
+  const normalizedStatus = status.toLowerCase();
+  switch (normalizedStatus) {
+    case 'verified':
+    case 'approved': return 'verified';
+    case 'in review':
+    case 'under_review': return 'in review';
+    default: return status.replace('_', ' ').toLowerCase();
   }
 };
 
@@ -139,8 +155,17 @@ const getStatusIcon = (status: string) => {
 export default function KYCManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [kycData, setKycData] = useState<KYCData[]>([]);
-  const [availableStatuses, setAvailableStatuses] = useState<any[]>([]);
+  const [pagination, setPagination] = useState<PaginationInfo>({
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 0,
+    hasNextPage: false,
+    hasPreviousPage: false,
+  });
   const [stats, setStats] = useState<KYCStats>({
     total: 0,
     pending: 0,
@@ -150,40 +175,72 @@ export default function KYCManagement() {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [sumsubTest, setSumsubTest] = useState<any>(null);
-  const [testLoading, setTestLoading] = useState(false);
+  const [selectedKyc, setSelectedKyc] = useState<KYCData | null>(null);
+  const [selectedKycImages, setSelectedKycImages] = useState<KYCImage[]>([]);
+  const [loadingImages, setLoadingImages] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
 
-
-
-  // Load available statuses from lookup table
-  const loadAvailableStatuses = async () => {
-    try {
-      const response = await fetch('/api/kyc/statuses');
-      const result = await response.json();
-      if (result.success) {
-        setAvailableStatuses(result.data);
-      }
-    } catch (err) {
-      console.error('Failed to load KYC statuses:', err);
-    }
-  };
-
-  // Load KYC data
+  // Load KYC data from database
   const loadKYCData = async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetchKYCData({ status: statusFilter });
       
-      if (!response.success && response.error) {
-        setError(response.error);
+      // Fetch both data and real-time stats
+      const [dataResponse, statsResponse] = await Promise.all([
+        fetchKYCData({ status: statusFilter, page: currentPage, limit: pageSize }),
+        fetchKYCStats()
+      ]);
+      
+      if (!dataResponse.success) {
+        setError(dataResponse.error || 'Failed to load KYC data');
         setKycData([]);
+        setPagination({
+          page: 1,
+          limit: pageSize,
+          total: 0,
+          totalPages: 0,
+          hasNextPage: false,
+          hasPreviousPage: false,
+        });
         setStats({ total: 0, pending: 0, approved: 0, rejected: 0, underReview: 0 });
         return;
       }
       
-      setKycData(response.data || []);
-      setStats(response.stats || { total: 0, pending: 0, approved: 0, rejected: 0, underReview: 0 });
+      // Transform the data to match our interface
+      const transformedData = dataResponse.data.map((record: any) => ({
+        id: record.id,
+        userId: record.userId,
+        userName: record.userName || 'Unknown',
+        email: record.email || 'Unknown',
+        status: record.status,
+        submittedAt: record.submittedAt,
+        reviewedAt: record.reviewedAt,
+        documents: record.documents || [],
+        notes: record.notes,
+        rejectionReason: record.rejectionReason,
+        reviewer: record.reviewer,
+        sumsubApplicantId: record.sumsub?.applicantId,
+        sumsubScore: record.sumsub?.score,
+      }));
+      
+      setKycData(transformedData);
+      setPagination(dataResponse.pagination || {
+        page: 1,
+        limit: pageSize,
+        total: 0,
+        totalPages: 0,
+        hasNextPage: false,
+        hasPreviousPage: false,
+      });
+      
+      // Use real-time stats from the dedicated stats endpoint
+      if (statsResponse.success) {
+        setStats(statsResponse.stats || { total: 0, pending: 0, approved: 0, rejected: 0, underReview: 0 });
+      } else {
+        // Fallback to stats from data response
+        setStats(dataResponse.stats || { total: 0, pending: 0, approved: 0, rejected: 0, underReview: 0 });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load KYC data');
       toast.error('Failed to load KYC data');
@@ -192,134 +249,43 @@ export default function KYCManagement() {
     }
   };
 
-  // Load data on component mount and when status filter changes
+  // Load data on component mount and when filters change
   useEffect(() => {
-    loadAvailableStatuses();
     loadKYCData();
-    // Auto-test Sumsub connection on page load
-    testSumsubConnection();
+  }, [statusFilter, currentPage, pageSize]);
+
+  // Reset to first page when status filter changes
+  useEffect(() => {
+    if (currentPage !== 1) {
+      setCurrentPage(1);
+    }
   }, [statusFilter]);
 
-  // Handle status update
-  const handleStatusUpdate = async (kycId: string, newStatus: string) => {
-    try {
-      await updateKYCStatus(kycId, newStatus);
-      toast.success(`KYC status updated to ${newStatus}`);
-      loadKYCData(); // Reload data
-    } catch (err) {
-      toast.error('Failed to update KYC status');
-    }
+  // Pagination handlers
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
   };
 
-  // Handle KYC reset for Sumsub
-  const handleKYCReset = async (userId: string) => {
-    try {
-      const response = await fetch('/api/kyc/sumsub/reset', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ userId }),
-      });
-
-      const result = await response.json();
-
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to reset KYC');
-      }
-
-      toast.success('KYC reset successfully');
-      loadKYCData(); // Reload data
-    } catch (err) {
-      toast.error('Failed to reset KYC');
-    }
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPageSize(newPageSize);
+    setCurrentPage(1); // Reset to first page when changing page size
   };
 
-  // Open Sumsub dashboard
-  const openSumsubDashboard = (applicantId: string) => {
-    const baseUrl = process.env.NODE_ENV === 'production' 
-      ? 'https://cockpit.sumsub.com' 
-      : 'https://cockpit.sumsub.com';
-    window.open(`${baseUrl}/checkus/#/applicant/${applicantId}`, '_blank');
-  };
-
-  // Test Sumsub connection
-  const testSumsubConnection = async () => {
+  // View KYC details
+  const viewKycDetails = async (kyc: KYCData) => {
+    setSelectedKyc(kyc);
+    setShowDetailsModal(true);
+    setLoadingImages(true);
+    setSelectedKycImages([]);
+    
     try {
-      setTestLoading(true);
-      const response = await fetch('/api/kyc/sumsub/test');
-      const result = await response.json();
-      setSumsubTest(result);
-      
-      if (result.success) {
-        toast.success('Sum & Substance connection successful!');
-      } else {
-        toast.error('Sum & Substance connection failed');
-      }
-    } catch (err) {
-      toast.error('Failed to test Sum & Substance connection');
-      setSumsubTest({
-        success: false,
-        error: 'Network error',
-        details: err instanceof Error ? err.message : 'Unknown error'
-      });
+      const images = await fetchKYCImages(kyc.id, kyc.userId);
+      setSelectedKycImages(images);
+    } catch (error) {
+      console.error('Failed to load KYC images:', error);
+      toast.error('Failed to load KYC images');
     } finally {
-      setTestLoading(false);
-    }
-  };
-
-  // Create test applicant
-  const createTestApplicant = async () => {
-    try {
-      setTestLoading(true);
-      const response = await fetch('/api/kyc/sumsub/test', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ testType: 'create_test_applicant' }),
-      });
-      
-      const result = await response.json();
-      
-      if (result.success) {
-        toast.success('Test applicant created successfully!');
-        // Refresh the connection test to show updated data
-        await testSumsubConnection();
-      } else {
-        toast.error('Failed to create test applicant');
-      }
-    } catch (err) {
-      toast.error('Failed to create test applicant');
-    } finally {
-      setTestLoading(false);
-    }
-  };
-
-  // Sync data from Sumsub
-  const syncSumsubData = async () => {
-    try {
-      setTestLoading(true);
-      const response = await fetch('/api/kyc/sumsub/sync', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ action: 'sync_all_applicants' }),
-      });
-      
-      const result = await response.json();
-      
-      if (result.success) {
-        toast.success(`Synced ${result.syncedCount} applicants from Sum & Substance`);
-        loadKYCData(); // Refresh KYC data
-      } else {
-        toast.error('Failed to sync data from Sum & Substance');
-      }
-    } catch (err) {
-      toast.error('Failed to sync Sum & Substance data');
-    } finally {
-      setTestLoading(false);
+      setLoadingImages(false);
     }
   };
 
@@ -351,13 +317,10 @@ export default function KYCManagement() {
           <div className="text-center">
             <AlertTriangle className="h-8 w-8 mx-auto mb-4 text-red-500" />
             <p className="text-red-600 mb-4">{error}</p>
-            <div className="flex gap-2 justify-center">
-              <Button onClick={loadKYCData} variant="outline">
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Try Again
-              </Button>
-
-            </div>
+            <Button onClick={loadKYCData} variant="outline">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Try Again
+            </Button>
           </div>
         </div>
       </div>
@@ -386,170 +349,12 @@ export default function KYCManagement() {
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-
           <Button variant="outline" className="w-full sm:w-auto">
             <Download className="h-4 w-4 mr-2" />
             Export Report
           </Button>
         </div>
       </div>
-
-      {/* Sum & Substance Integration */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Zap className="h-5 w-5 mr-2 text-blue-600" />
-            Sum & Substance Integration
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex flex-wrap gap-2">
-              <Button 
-                onClick={testSumsubConnection}
-                disabled={testLoading}
-                variant="outline"
-                className="flex items-center"
-              >
-                {testLoading ? (
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <TestTube className="h-4 w-4 mr-2" />
-                )}
-                Test Connection
-              </Button>
-
-              <Button 
-                onClick={createTestApplicant}
-                disabled={testLoading}
-                variant="outline"
-                className="flex items-center"
-              >
-                {testLoading ? (
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Users className="h-4 w-4 mr-2" />
-                )}
-                Create Test Applicant
-              </Button>
-
-              <Button 
-                onClick={syncSumsubData}
-                disabled={testLoading}
-                variant="outline"
-                className="flex items-center"
-              >
-                {testLoading ? (
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Database className="h-4 w-4 mr-2" />
-                )}
-                Sync Data
-              </Button>
-            </div>
-
-            {/* Test Results */}
-            {sumsubTest && (
-              <div className="mt-4 p-4 rounded-lg border bg-white">
-                <div className="flex items-center mb-2">
-                  <Activity className="h-4 w-4 mr-2" />
-                  <span className="font-medium">Connection Status</span>
-                  <Badge 
-                    className={`ml-2 ${sumsubTest.success ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}
-                  >
-                    {sumsubTest.success ? 'Connected' : 'Failed'}
-                  </Badge>
-                </div>
-
-                {sumsubTest.success ? (
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                      <div>
-                        <span className="font-medium">Environment:</span>
-                        <span className="ml-2 text-blue-600">Sandbox</span>
-                      </div>
-                      <div>
-                        <span className="font-medium">App Token:</span>
-                        <span className="ml-2 font-mono text-xs">{sumsubTest.appToken}</span>
-                      </div>
-                      <div>
-                        <span className="font-medium">Applicants:</span>
-                        <span className="ml-2">{sumsubTest.tests?.applicants?.count || 0}</span>
-                      </div>
-                    </div>
-
-                    {/* Available Data */}
-                    <div className="border-t pt-3">
-                      <p className="text-xs font-medium mb-2">Available Data from Sum & Substance:</p>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-                        <Badge variant="outline" className="justify-center">
-                          <CheckCircle className="h-3 w-3 mr-1 text-green-600" />
-                          Applicants
-                        </Badge>
-                        <Badge variant="outline" className="justify-center">
-                          <CheckCircle className="h-3 w-3 mr-1 text-green-600" />
-                          Documents
-                        </Badge>
-                        <Badge variant="outline" className="justify-center">
-                          <CheckCircle className="h-3 w-3 mr-1 text-green-600" />
-                          Status
-                        </Badge>
-                        <Badge variant="outline" className="justify-center">
-                          <CheckCircle className="h-3 w-3 mr-1 text-green-600" />
-                          Risk Scores
-                        </Badge>
-                        <Badge variant="outline" className="justify-center">
-                          <CheckCircle className="h-3 w-3 mr-1 text-green-600" />
-                          Reviews
-                        </Badge>
-                        <Badge variant="outline" className="justify-center">
-                          <CheckCircle className="h-3 w-3 mr-1 text-green-600" />
-                          Checks
-                        </Badge>
-                        <Badge variant="outline" className="justify-center">
-                          {sumsubTest.tests?.statistics?.success ? (
-                            <CheckCircle className="h-3 w-3 mr-1 text-green-600" />
-                          ) : (
-                            <XCircle className="h-3 w-3 mr-1 text-gray-400" />
-                          )}
-                          Statistics
-                        </Badge>
-                        <Badge variant="outline" className="justify-center">
-                          {sumsubTest.tests?.webhookLogs?.success ? (
-                            <CheckCircle className="h-3 w-3 mr-1 text-green-600" />
-                          ) : (
-                            <XCircle className="h-3 w-3 mr-1 text-gray-400" />
-                          )}
-                          Webhooks
-                        </Badge>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-red-600 text-sm">
-                    <p className="font-medium">Error: {sumsubTest.error}</p>
-                    <p>{sumsubTest.details}</p>
-                    {sumsubTest.troubleshooting && (
-                      <div className="mt-2">
-                        <p className="font-medium">Troubleshooting:</p>
-                        <ul className="list-disc list-inside ml-2">
-                          {Object.entries(sumsubTest.troubleshooting).map(([key, value]) => (
-                            <li key={key}>{value as string}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div className="mt-2 text-xs text-muted-foreground">
-                  Last tested: {sumsubTest.timestamp ? new Date(sumsubTest.timestamp).toLocaleString() : 'Never'}
-                </div>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Stats Cards */}
       <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
@@ -581,7 +386,7 @@ export default function KYCManagement() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center">
               <CheckCircle className="h-4 w-4 mr-2" />
-              Approved
+              Verified
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -605,7 +410,7 @@ export default function KYCManagement() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center">
               <AlertTriangle className="h-4 w-4 mr-2" />
-              Under Review
+              In Review
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -642,11 +447,10 @@ export default function KYCManagement() {
               disabled={loading}
             >
               <option value="all">All Statuses</option>
-              {availableStatuses.map((status) => (
-                <option key={status.id} value={status.name}>
-                  {status.name.charAt(0).toUpperCase() + status.name.slice(1)}
-                </option>
-              ))}
+              <option value="Pending">Pending</option>
+              <option value="In Review">In Review</option>
+              <option value="Verified">Verified</option>
+              <option value="Rejected">Rejected</option>
             </select>
           </div>
         </CardContent>
@@ -668,8 +472,6 @@ export default function KYCManagement() {
                   <th className="text-left py-3 px-4 font-medium">User</th>
                   <th className="text-left py-3 px-4 font-medium">KYC ID</th>
                   <th className="text-left py-3 px-4 font-medium">Status</th>
-                  <th className="text-left py-3 px-4 font-medium">Score</th>
-                  <th className="text-left py-3 px-4 font-medium">Documents</th>
                   <th className="text-left py-3 px-4 font-medium">Submitted</th>
                   <th className="text-left py-3 px-4 font-medium">Actions</th>
                 </tr>
@@ -684,43 +486,13 @@ export default function KYCManagement() {
                       </div>
                     </td>
                     <td className="py-3 px-4">
-                      <code className="text-sm bg-muted px-2 py-1 rounded">{item.id}</code>
+                      <code className="text-xs bg-muted px-2 py-1 rounded font-mono break-all">{item.id}</code>
                     </td>
                     <td className="py-3 px-4">
-                      <div className="flex flex-col gap-1">
-                        <Badge 
-                          className={`${getStatusColor(item.status)} flex items-center gap-1 w-fit`}
-                          style={getStatusStyle(item.status)}
-                        >
-                          {getStatusIcon(item.status)}
-                          {item.status.replace('_', ' ')}
-                        </Badge>
-                        {item.sumsub?.applicantId && (
-                          <Badge variant="outline" className="text-xs w-fit">
-                            <ExternalLink className="h-3 w-3 mr-1" />
-                            Sumsub
-                          </Badge>
-                        )}
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      {item.sumsub?.score ? (
-                        <div className="flex items-center gap-1">
-                          <Star className="h-4 w-4 text-yellow-500" />
-                          <span className="font-medium">{item.sumsub.score.toFixed(1)}</span>
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex flex-wrap gap-1">
-                        {item.documents.map((doc, index) => (
-                          <Badge key={index} variant="outline" className="text-xs">
-                            {doc.replace('_', ' ')}
-                          </Badge>
-                        ))}
-                      </div>
+                      <Badge className={`${getStatusColor(item.status)} flex items-center gap-1 w-fit`}>
+                        {getStatusIcon(item.status)}
+                        {getStatusDisplayText(item.status)}
+                      </Badge>
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex items-center text-sm text-muted-foreground">
@@ -730,68 +502,224 @@ export default function KYCManagement() {
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex gap-2">
-                        <Button size="sm" variant="outline">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => viewKycDetails(item)}
+                        >
                           <Eye className="h-4 w-4" />
                         </Button>
-                        
-                        {/* Sumsub Dashboard Link */}
-                        {item.sumsub?.applicantId && (
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => openSumsubDashboard(item.sumsub.applicantId!)}
-                            title="View in Sumsub Dashboard"
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </Button>
-                        )}
-
-                        {/* Status Update Actions */}
-                        {item.status === 'pending' && (
-                          <>
-                            <Button 
-                              size="sm" 
-                              variant="outline" 
-                              className="text-green-600 hover:text-green-700"
-                              onClick={() => handleStatusUpdate(item.id, 'approved')}
-                              disabled={loading}
-                            >
-                              <CheckCircle className="h-4 w-4" />
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="outline" 
-                              className="text-red-600 hover:text-red-700"
-                              onClick={() => handleStatusUpdate(item.id, 'rejected')}
-                              disabled={loading}
-                            >
-                              <XCircle className="h-4 w-4" />
-                            </Button>
-                          </>
-                        )}
-
-                        {/* Reset KYC for rejected cases */}
-                        {item.status === 'rejected' && item.sumsub?.applicantId && (
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            className="text-blue-600 hover:text-blue-700"
-                            onClick={() => handleKYCReset(item.userId)}
-                            disabled={loading}
-                            title="Reset KYC for resubmission"
-                          >
-                            <RotateCcw className="h-4 w-4" />
-                          </Button>
-                        )}
                       </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+
+            {filteredData.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground">
+                <Database className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No KYC records found</p>
+                {searchTerm && (
+                  <p className="text-sm">Try adjusting your search criteria</p>
+                )}
+              </div>
+            )}
           </div>
+
+          {/* Pagination Controls */}
+          {pagination.totalPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                  Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} results
+                </span>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <select
+                  value={pageSize}
+                  onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+                  className="px-2 py-1 border border-input bg-background rounded text-sm"
+                >
+                  <option value={5}>5 per page</option>
+                  <option value={10}>10 per page</option>
+                  <option value={20}>20 per page</option>
+                  <option value={50}>50 per page</option>
+                </select>
+                
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(1)}
+                    disabled={!pagination.hasPreviousPage}
+                  >
+                    First
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(pagination.page - 1)}
+                    disabled={!pagination.hasPreviousPage}
+                  >
+                    Previous
+                  </Button>
+                  
+                  <span className="px-3 py-1 text-sm">
+                    Page {pagination.page} of {pagination.totalPages}
+                  </span>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(pagination.page + 1)}
+                    disabled={!pagination.hasNextPage}
+                  >
+                    Next
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(pagination.totalPages)}
+                    disabled={!pagination.hasNextPage}
+                  >
+                    Last
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
+
+      {/* KYC Details Modal */}
+      <Dialog open={showDetailsModal} onOpenChange={setShowDetailsModal}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>KYC Details</DialogTitle>
+          </DialogHeader>
+          {selectedKyc && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium">User</label>
+                  <p className="text-sm text-muted-foreground">{selectedKyc.userName}</p>
+                  <p className="text-sm text-muted-foreground">{selectedKyc.email}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Status</label>
+                  <div className="mt-1">
+                    <Badge className={getStatusColor(selectedKyc.status)}>
+                      {getStatusDisplayText(selectedKyc.status)}
+                    </Badge>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Submitted</label>
+                  <p className="text-sm text-muted-foreground">
+                    {new Date(selectedKyc.submittedAt).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+
+              {/* KYC Images Section */}
+              <div>
+                <label className="text-sm font-medium">Uploaded Documents</label>
+                <div className="mt-2">
+                  {loadingImages ? (
+                    <div className="flex items-center justify-center py-8">
+                      <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+                      <span className="ml-2 text-sm text-muted-foreground">Loading images...</span>
+                    </div>
+                  ) : selectedKycImages.length > 0 ? (
+                    <div className="grid grid-cols-2 gap-4">
+                      {selectedKycImages.map((image) => (
+                        <div key={image.id} className="border rounded-lg p-3 space-y-2">
+                          <div className="aspect-video bg-muted rounded-md overflow-hidden">
+                            {image.fileType.startsWith('image/') ? (
+                              <img
+                                src={image.url}
+                                alt={`${image.documentType} document`}
+                                className="w-full h-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                                onClick={() => window.open(image.url, '_blank')}
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <div className="text-center">
+                                  <FileText className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                                  <p className="text-xs text-muted-foreground">PDF Document</p>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="mt-2"
+                                    onClick={() => window.open(image.url, '_blank')}
+                                  >
+                                    View PDF
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <Badge variant="secondary" className="text-xs">
+                                {image.documentType.replace('_', ' ').toUpperCase()}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {(image.fileSize / 1024).toFixed(1)} KB
+                              </span>
+                            </div>
+                            <p className="text-xs text-muted-foreground truncate" title={image.fileName}>
+                              {image.fileName}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Uploaded: {new Date(image.uploadedAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p>No documents uploaded</p>
+                      <p className="text-sm">Documents will appear here once uploaded</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {selectedKyc.notes && (
+                <div>
+                  <label className="text-sm font-medium">Notes</label>
+                  <p className="text-sm text-muted-foreground bg-muted p-2 rounded">
+                    {selectedKyc.notes}
+                  </p>
+                </div>
+              )}
+
+              {selectedKyc.rejectionReason && (
+                <div>
+                  <label className="text-sm font-medium">Rejection Reason</label>
+                  <p className="text-sm text-red-600 bg-red-50 p-2 rounded">
+                    {selectedKyc.rejectionReason}
+                  </p>
+                </div>
+              )}
+
+              {selectedKyc.reviewer && (
+                <div>
+                  <label className="text-sm font-medium">Reviewed By</label>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedKyc.reviewer.name} ({selectedKyc.reviewer.email})
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
