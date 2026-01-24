@@ -72,7 +72,7 @@ export async function GET(
         result.images.forEach((storageImage, index) => {
           // Extract document type from filename or default to 'document'
           let documentType = 'document';
-          const fileName = storageImage.fileName || storageImage.path.split('/').pop() || 'unknown';
+          const fileName = storageImage.path.split('/').pop() || 'unknown';
           
           if (fileName.toLowerCase().includes('front') || fileName.toLowerCase().includes('id')) {
             documentType = 'id_front';
@@ -92,8 +92,8 @@ export async function GET(
             path: storageImage.path,
             documentType: documentType,
             fileName: fileName,
-            fileSize: storageImage.fileSize || 0,
-            fileType: storageImage.fileType || 'image/jpeg',
+            fileSize: storageImage.size || 0,
+            fileType: 'image/jpeg', // Default since fileType is not in KycImageInfo
             uploadedAt: storageImage.uploadedAt || kycRecord[0].created_at,
             bucketName: 'kyc-images',
           });

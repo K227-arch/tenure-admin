@@ -59,7 +59,7 @@ export default function SumsubCredentialsCheck({ testResult }: SumsubCredentials
             </div>
 
             <div className="text-xs text-muted-foreground">
-              <strong>Note:</strong> If you don't have the secret key, you may need to create a new app token.
+              <strong>Note:</strong> If you don&apos;t have the secret key, you may need to create a new app token.
             </div>
           </div>
         ) : (

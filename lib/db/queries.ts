@@ -15,6 +15,8 @@ import {
   adminAlerts,
   userPayments,
   newsfeedPosts,
+  kycStatuses,
+  kycVerification,
   type NewAdminAccount,
   type NewAdminSession,
   type NewTwoFactorAuth,
@@ -24,6 +26,8 @@ import {
   type NewTransaction,
   type NewUserPayment,
   type NewNewsfeedPost,
+  type NewKycStatus,
+  type NewKycVerification,
 } from './schema';
 
 // Admin Account Queries
@@ -417,7 +421,7 @@ export const transactionQueries = {
         totalAmount: sql<number>`COALESCE(SUM(CAST(${transactions.amount} AS DECIMAL)), 0)`,
       })
       .from(transactions);
-    
+
     // Also get completed only
     const completedResult = await db
       .select({
@@ -483,7 +487,7 @@ export const billingScheduleQueries = {
         schedule: billingSchedules,
         user: {
           id: users.id,
-          
+
           email: users.email,
           emailVerified: users.emailVerified,
           userStatusId: users.userStatusId,
@@ -507,7 +511,7 @@ export const billingScheduleQueries = {
         schedule: billingSchedules,
         user: {
           id: users.id,
-          
+
           email: users.email,
           emailVerified: users.emailVerified,
           userStatusId: users.userStatusId,
@@ -565,7 +569,7 @@ export const userPaymentQueries = {
         payment: userPayments,
         user: {
           id: users.id,
-          
+
           email: users.email,
           emailVerified: users.emailVerified,
           userStatusId: users.userStatusId,
@@ -769,7 +773,7 @@ export const kycVerificationQueries = {
       }
       if (filters.riskLevel) conditions.push(eq(kycVerification.riskLevel, filters.riskLevel as any));
       if (filters.userId) conditions.push(eq(kycVerification.userId, filters.userId));
-      
+
       if (conditions.length > 0) {
         query = query.where(and(...conditions)) as any;
       }
@@ -878,7 +882,7 @@ export const kycVerificationQueries = {
     statsResult.forEach((stat) => {
       const statusName = stat.statusName?.toLowerCase();
       const count = Number(stat.count || 0);
-      
+
       if (statusName === 'pending') {
         stats.pending = count;
       } else if (statusName === 'approved') {
