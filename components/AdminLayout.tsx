@@ -47,7 +47,7 @@ const navigationItems = [
   { name: "Security & Monitoring", href: "/admin-sessions", icon: Shield },
   { name: "Subscriptions", href: "/subscriptions", icon: CreditCard },
   { name: "Transactions", href: "/transactions", icon: Receipt },
-  { name: "KYC Management", href: "/kyc", icon: Shield },
+  { name: "Financial Reports", href: "/financial", icon: DollarSign },
   { name: "Payout Management", href: "/payouts", icon: Trophy },
   { name: "Content Management", href: "/content", icon: Megaphone },
   { name: "Integrations", href: "/integrations", icon: Settings },

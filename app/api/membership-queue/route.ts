@@ -29,7 +29,7 @@ export async function GET() {
 
     // Enrich user_memberships data with phone and address
     const enrichedMembers = await Promise.all(
-      (members || []).map(async (member, index) => {
+      (members || []).map(async (member) => {
         const userId = member.user_id;
         
         // Fetch phone number from user_contacts
@@ -67,9 +67,8 @@ export async function GET() {
           last_name: member.users?.name?.split(' ').slice(1).join(' ') || '',
           full_name: member.users?.name,
           member_status: statusData?.name || 'Active',
-          member_status_id: member.member_status_id || 1,
-          member_eligibility_status_id: member.member_eligibility_status_id || 1,
-          queue_position: index + 1, // Generate queue position based on order
+          member_status_id: member.users?.user_status_id || 1,
+          queue_position: member.position || 1,
           phone: contacts?.[0]?.contact_value || null,
           address: addresses?.[0] ? 
             `${addresses[0].street_address}${addresses[0].address_line_2 ? ', ' + addresses[0].address_line_2 : ''}` : null,

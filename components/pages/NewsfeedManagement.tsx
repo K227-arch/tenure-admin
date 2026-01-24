@@ -67,7 +67,6 @@ export default function NewsfeedManagement() {
   const [formData, setFormData] = useState({
     title: '',
     content: '',
-    imageUrl: '',
     isPublished: false,
   });
 
@@ -120,7 +119,6 @@ export default function NewsfeedManagement() {
     setFormData({
       title: '',
       content: '',
-      imageUrl: '',
       isPublished: false,
     });
     setEditingPost(null);
@@ -136,7 +134,6 @@ export default function NewsfeedManagement() {
     setFormData({
       title: post.title,
       content: post.content,
-      imageUrl: post.imageUrl || '',
       isPublished: post.isPublished,
     });
     setIsDialogOpen(true);
@@ -212,7 +209,10 @@ export default function NewsfeedManagement() {
                       {post.isPublished ? 'Published' : 'Draft'}
                     </Badge>
                   </TableCell>
-                  <TableCell>{new Date(post.createdAt).toLocaleDateString()}</TableCell>
+                  <TableCell>
+                    {post.created_at ? new Date(post.created_at).toLocaleDateString() : 
+                     post.createdAt ? new Date(post.createdAt).toLocaleDateString() : 'N/A'}
+                  </TableCell>
                   <TableCell className="text-right space-x-2">
                     <Button
                       variant="ghost"
@@ -254,6 +254,14 @@ export default function NewsfeedManagement() {
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>{editingPost ? 'Edit Post' : 'Create New Post'}</DialogTitle>
+            {editingPost && (
+              <p className="text-sm text-muted-foreground">
+                Created: {editingPost.created_at ? 
+                  new Date(editingPost.created_at).toLocaleString() : 
+                  editingPost.createdAt ? 
+                  new Date(editingPost.createdAt).toLocaleString() : 'Unknown'}
+              </p>
+            )}
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -275,15 +283,7 @@ export default function NewsfeedManagement() {
                 rows={6}
               />
             </div>
-            <div>
-              <Label htmlFor="imageUrl">Image URL (optional)</Label>
-              <Input
-                id="imageUrl"
-                value={formData.imageUrl}
-                onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-                placeholder="https://example.com/image.jpg"
-              />
-            </div>
+
             <div className="flex items-center space-x-2">
               <Switch
                 id="isPublished"

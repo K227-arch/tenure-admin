@@ -10,8 +10,6 @@ export const transactionStatusEnum = pgEnum('transaction_status', ['pending', 'c
 export const payoutStatusEnum = pgEnum('payout_status', ['pending', 'processing', 'completed', 'failed']);
 export const membershipStatusEnum = pgEnum('membership_status', ['Inactive', 'Active', 'Suspended', 'Cancelled', 'Won', 'Paid']);
 export const actionTypeEnum = pgEnum('action_type', ['login', 'logout', 'create', 'update', 'delete', 'view', 'export']);
-export const kycStatusEnum = pgEnum('kyc_status', ['pending', 'under_review', 'approved', 'rejected', 'expired']);
-export const riskLevelEnum = pgEnum('risk_level', ['low', 'medium', 'high']);
 
 // Admin Accounts Table (using existing 'admin' table)
 export const adminAccounts = pgTable('admin', {
@@ -264,40 +262,6 @@ export const newsfeedPosts = pgTable('newsfeedposts', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
-// KYC Statuses Table
-export const kycStatuses = pgTable('kyc_statuses', {
-  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
-  name: varchar('name', { length: 50 }).notNull().unique(),
-  description: text('description'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-});
-
-// KYC Verification Table
-export const kycVerification = pgTable('kyc_verification', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  status: varchar('status', { length: 50 }).notNull().default('pending'),
-  riskLevel: varchar('risk_level', { length: 20 }).default('low'),
-  submittedAt: timestamp('submitted_at').notNull().defaultNow(),
-  reviewedAt: timestamp('reviewed_at'),
-  reviewerId: integer('reviewer_id').references(() => adminAccounts.id, { onDelete: 'set null' }),
-  documents: jsonb('documents'), // Array of document types and URLs
-  notes: text('notes'),
-  rejectionReason: text('rejection_reason'),
-  expiresAt: timestamp('expires_at'),
-  metadata: jsonb('metadata'),
-  // Sum & Substance specific fields
-  sumsubApplicantId: varchar('sumsub_applicant_id', { length: 255 }),
-  sumsubInspectionId: varchar('sumsub_inspection_id', { length: 255 }),
-  sumsubExternalUserId: varchar('sumsub_external_user_id', { length: 255 }),
-  sumsubAccessToken: text('sumsub_access_token'),
-  sumsubWebhookData: jsonb('sumsub_webhook_data'),
-  sumsubReviewResult: jsonb('sumsub_review_result'),
-  sumsubScore: decimal('sumsub_score', { precision: 5, scale: 2 }),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-});
-
 // Export types
 export type AdminAccount = typeof adminAccounts.$inferSelect;
 export type NewAdminAccount = typeof adminAccounts.$inferInsert;
@@ -331,7 +295,3 @@ export type UserAddress = typeof userAddresses.$inferSelect;
 export type NewUserAddress = typeof userAddresses.$inferInsert;
 export type NewsfeedPost = typeof newsfeedPosts.$inferSelect;
 export type NewNewsfeedPost = typeof newsfeedPosts.$inferInsert;
-export type KycStatus = typeof kycStatuses.$inferSelect;
-export type NewKycStatus = typeof kycStatuses.$inferInsert;
-export type KycVerification = typeof kycVerification.$inferSelect;
-export type NewKycVerification = typeof kycVerification.$inferInsert;

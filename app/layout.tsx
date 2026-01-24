@@ -11,7 +11,7 @@ import { Providers } from './providers'
 
 export const metadata: Metadata = {
   title: 'TenurE Admin - Membership Management System',
-  description: 'Comprehensive admin dashboard for managing memberships, KYC compliance, payouts, and member engagement',
+  description: 'Comprehensive admin dashboard for managing memberships, financial reports, payouts, and member engagement',
   authors: [{ name: 'TenurE' }],
 }
 
